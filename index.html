@@ -59,7 +59,7 @@
   <div class="wrap">
     <aside class="card">
       <div class="row"><input id="q" type="text" placeholder="Buscar por nombre o DNI… (⌘/Ctrl + K)"></div>
-      <div class="controls" id="uploadControls" style="display:none;">
+      <div class="controls" id="uploadControls" style="display:none;" style="display:none;">
         <div id="drop" class="drop" style="border:2px dashed #94a3b8; padding:12px; border-radius:10px; text-align:center; color:#475569;">Arrastrá y soltá tu CSV aquí</div>
         <div class="row">
           <label class="btn">
@@ -72,7 +72,7 @@
       </div>
       <div id="list" class="list" aria-label="Resultados"></div>
       <p id="dataNote" class="hint">Fuente: Google Sheets (se carga automáticamente). Usá el botón “Refrescar datos datos”.</p>
-      <p id="csvHint" class="hint" style="display:none;">Formato CSV esperado: <code>nombre,dni,mesa,orden,escuela</code></p>
+      <p id="csvHint" style="display:none;" class="hint" style="display:none;">Formato CSV esperado: <code>nombre,dni,mesa,orden,escuela</code></p>
     </aside>
 
     <main class="card">
@@ -137,28 +137,37 @@ María López,45678901,004,12,Escuela 7`;
     function onlyDigits(str='') { return (str.match(/\d+/g) || []).join(''); }
 
     // Minimal CSV parse (simple commas; if you need full quoted CSV support, just avísame y lo agrego)
+    
     function parseCSV(text) {
+      // Comma-delimited CSV only; supports quotes and UTF-8 BOM
+      text = text.replace(/^\uFEFF/, '');
       const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
-      const headers = lines.shift().split(',').map(h => h.trim().toLowerCase());
+      if (!lines.length) throw new Error('CSV vacío');
+      const parseLine = (line) => {
+        const out = []; let cur = '', inQ = false;
+        for (let i=0; i<line.length; i++){
+          const c = line[i];
+          if (c === '"'){ if (inQ && line[i+1] === '"'){ cur += '"'; i++; } else { inQ = !inQ; } }
+          else if (c === ',' && !inQ){ out.push(cur); cur = ''; }
+          else { cur += c; }
+        }
+        out.push(cur); return out;
+      };
+      const headers = parseLine(lines.shift()).map(h => h.trim().toLowerCase());
       const need = ['nombre','dni','mesa','orden','escuela'];
-      for (const n of need) if (!headers.includes(n)) throw new Error('Falta columna: ' + n);
-      const idx = (k) => headers.indexOf(k);
+      for (const n of need) if (!headers.includes(n)) throw new Error('Falta columna: ' + n + '. Encabezados: ' + headers.join(', '));
+      const idx = (k)=> headers.indexOf(k);
       const iNombre = idx('nombre'), iDni = idx('dni'), iMesa = idx('mesa'), iOrden = idx('orden'), iEscuela = idx('escuela');
       return lines.map(l => {
-        const cols = l.split(',');
-        const r = {
-          nombre: (cols[iNombre] ?? '').trim(),
-          dni: (cols[iDni] ?? '').trim(),
-          mesa: (cols[iMesa] ?? '').trim(),
-          orden: (cols[iOrden] ?? '').trim(),
-          escuela: (cols[iEscuela] ?? '').trim(),
-        };
+        const cols = parseLine(l);
+        const get = (i)=> (cols[i] ?? '').trim();
+        const r = { nombre:get(iNombre), dni:get(iDni), mesa:get(iMesa), orden:get(iOrden), escuela:get(iEscuela) };
         r.__k_nombre = normalize(r.nombre);
         r.__k_dni = onlyDigits(r.dni);
         return r;
       });
     }
-
+    
     function setRows(text) {
       state.rows = parseCSV(text);
       state.filtered = [];
@@ -240,14 +249,13 @@ María López,45678901,004,12,Escuela 7`;
     
     // === Data URL loader (Sheets/GitHub/CSV público) ===
     const DEFAULT_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9kq5AXA-CpjSn1OmUnUkpQqUY3rBf4n80DF5EMj2uHtLdD3lKqoO6eXcNOAZTIi3oB8snH77BdC2/pub?gid=710845282&single=true&output=csv'; // e.g. Google Sheets publicado como CSV
-    function getParam(name){ return new URLSearchParams(location.search).get(name); }
-    const DATA_URL = getParam('csv') || DEFAULT_DATA_URL;
+    const DATA_URL = DEFAULT_DATA_URL;
     const statusTxt = document.getElementById('statusTxt');
     const refreshBtn = document.getElementById('refreshBtn');
 
     async function loadFromUrl(url){
       if (!url || url.includes('https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9kq5AXA-CpjSn1OmUnUkpQqUY3rBf4n80DF5EMj2uHtLdD3lKqoO6eXcNOAZTIi3oB8snH77BdC2/pub?gid=710845282&single=true&output=csv')) {
-        statusTxt.textContent = 'Definí DEFAULT_DATA_URL (CSV público)';
+        statusTxt.textContent = 'No se encontró padron.csv';
         return;
       }
       try {
@@ -264,6 +272,77 @@ María López,45678901,004,12,Escuela 7`;
       }
     }
     // Cargar al iniciar
+    
+    // === Instant-load cache (localStorage) ===
+    const LS_TEXT = 'PADRON_CSV_TEXT';
+    const LS_HASH = 'PADRON_CSV_HASH';
+    const LS_TIME = 'PADRON_CSV_TIME';
+
+    async function sha256(text){
+      const enc = new TextEncoder().encode(text);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    function loadFromCacheIfAny(){
+      try{
+        const cached = localStorage.getItem(LS_TEXT);
+        if (cached){
+          setRows(cached);
+          const when = localStorage.getItem(LS_TIME) || '';
+          statusTxt.textContent = 'Datos cargados (cache ' + (when || 'previo') + ')';
+          return true;
+        }
+      }catch{}
+      return false;
+    }
+
+    async function saveCache(text){
+      try{
+        const h = await sha256(text);
+        localStorage.setItem(LS_TEXT, text);
+        localStorage.setItem(LS_HASH, h);
+        localStorage.setItem(LS_TIME, new Date().toLocaleString());
+      }catch{}
+    }
+
+    async function loadFromUrl(url){
+      if (!url || url.includes('<<PEGAR_ACA_TU_URL_CSV_PUBLICO>>')) {
+        statusTxt.textContent = 'No se encontró padron.csv';
+        return;
+      }
+      try {
+        if (!loadFromCacheIfAny()){
+          statusTxt.textContent = 'Cargando padrón…';
+        } else {
+          // Ya mostramos cache; seguimos con revalidación silenciosa
+        }
+        const res = await fetch(url, {cache:'no-store'});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const text = await res.text();
+        // Si hay cache y el hash coincide, solo actualizar mensaje/tiempo
+        const oldHash = localStorage.getItem(LS_HASH) || '';
+        const newHash = await sha256(text);
+        if (newHash !== oldHash){
+          setRows(text); // datos nuevos → render inmediato
+        }
+        await saveCache(text);
+        statusTxt.textContent = 'Datos cargados (' + new Date().toLocaleString() + ')';
+      } catch (err) {
+        if (window.els?.result) els.result.innerHTML = '<div class="hint" style="color:#b91c1c;">No pude leer el CSV: ' + err.message + '</div>';
+        if (!loadFromCacheIfAny()){
+          statusTxt.textContent = 'Error cargando datos';
+        } else {
+          statusTxt.textContent = 'Datos de cache — error al actualizar';
+        }
+      }
+    }
+
+    // Cargar al iniciar: primero cache (si existe), luego red
+    loadFromCacheIfAny();
+    loadFromUrl(DATA_URL);
+    refreshBtn?.addEventListener('click', () => loadFromUrl(DATA_URL));
+
     loadFromUrl(DATA_URL);
     // Botón refrescar
     refreshBtn?.addEventListener('click', () => loadFromUrl(DATA_URL));
@@ -413,7 +492,7 @@ María López,45678901,004,12,Escuela 7`;
     });
   }
   // Sobrescribir parseCSV si existe
-  try { window.parseCSV = parseCSV_robust; } catch {}
+  try { window.parseCSV = parseCSV; } catch {}
   // Agregar drag&drop si existe contenedor
   const drop = document.getElementById('drop');
   if (drop){
