@@ -1,274 +1,133 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Buscador por Nombre/DNI</title>
-  <style>
-    :root { --gap: 14px; --radius: 12px; --shadow: 0 10px 30px rgba(0,0,0,.08); --brandA:#FF6A00; --brandB:#F22E2E; --brandC:#2D6BFF; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#f6f7fb; color:#0f172a; }
-    header { position: sticky; top:0; z-index:5; background:#fff; box-shadow: var(--shadow); padding: 10px 16px; display:flex; align-items:center; gap:10px; }
-    header h1 { font-size: 18px; margin:0; }
-    .wrap { padding: var(--gap); display:grid; gap: var(--gap); grid-template-columns: 380px 1fr; }
-    .card { background:#fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--gap); }
-    .hint { font-size: 12px; color:#64748b; }
-    .row { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-    input[type="text"] { width:100%; padding:12px 14px; border:1px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; }
-    input[type="text"]:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,.15); }
-    .btn { display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; }
-    .btn.primary { background: linear-gradient(90deg, var(--brandA), var(--brandB), var(--brandC)); color:#fff; border-color:transparent; }
-    .list { max-height: calc(100vh - 260px); overflow:auto; border-top:1px dashed #e5e7eb; margin-top:8px; }
-    .item { padding:10px; border-bottom:1px dashed #eef2f7; cursor:pointer; display:flex; justify-content:space-between; gap:10px; }
-    .item:hover { background:#f8fafc; }
-    .item .t { font-weight:700; }
-    .item .s { font-size:12px; color:#6b7280; }
-    .result { display:grid; gap:12px; }
-    .ticket { background:#0f172a; color:#fff; border-radius:14px; padding:18px; display:grid; gap:8px; box-shadow: var(--shadow); }
-    .ticket h2 { margin:0; font-size:18px; letter-spacing:.2px; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:8px 14px; }
-    .label { font-size:12px; color:#cbd5e1; text-transform: uppercase; letter-spacing:.05em; }
-    .value { font-size:16px; font-weight:700; }
-    .badge { background:#f1f5f9; padding:4px 8px; border-radius:999px; font-size:12px; color:#0f172a; border:1px solid #e2e8f0; }
-    #overlay{position:fixed; inset:0; background:#0b1220; color:#fff; display:none; z-index:50;}
-    #debug { font-size:11px; color:#475569; margin-left:8px; }
-  </style>
-</head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Buscador padrón (mínimo)</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:24px; color:#0f172a; }
+  #status { padding:8px 12px; border-radius:10px; background:#f1f5f9; display:inline-block; }
+  #status.ok { background:#dcfce7; }
+  #status.err { background:#fee2e2; }
+  input { padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; width:100%; max-width:520px; margin:12px 0; }
+  .item { padding:8px 10px; border:1px dashed #e2e8f0; border-radius:8px; margin:6px 0; cursor:pointer; }
+  .card { margin-top:12px; padding:16px; border-radius:12px; background:#0f172a; color:#fff; }
+  .muted { color:#64748b; font-size:12px; }
+</style>
 <body>
-  <header>
-    <img id="brandLogo" src="logo.jpg" alt="Logo" style="height:34px; margin-right:10px; border-radius:6px;" />
-    <h1>Buscador de Padrón</h1>
-    <span id="statusTxt" class="badge" style="margin-left:8px;">Cargando padrón…</span>
-    <span id="debug"></span>
-    <button id="refreshBtn" class="btn" style="margin-left:auto;" title="Volver a leer los datos">Refrescar datos</button>
-  </header>
+  <div id="status">Cargando padrón…</div>
+  <div class="muted" id="url"></div>
 
-  <div class="wrap">
-    <aside class="card">
-      <div class="row">
-        <input id="q" type="text" placeholder="Buscar por nombre o DNI… (⌘/Ctrl + K)">
-      </div>
-      <div id="list" class="list" aria-label="Resultados"></div>
-      <p class="hint">Fuente: CSV local del repositorio (<code>padron.csv</code>). Usá “Refrescar datos”.</p>
-    </aside>
-
-    <main class="card">
-      <div id="result" class="result">
-        <div class="hint">Escribí un nombre o DNI. Si hay una sola coincidencia, se muestra automáticamente la tarjeta.</div>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <button id="fullscreenBtn" class="btn primary" disabled>Pantalla completa</button>
-        <button id="clearBtn" class="btn">Limpiar</button>
-      </div>
-    </main>
+  <div>
+    <input id="q" placeholder="Buscar por nombre o DNI…" autocomplete="off">
   </div>
 
-  <div id="overlay" aria-hidden="true">
-    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:24px;">
-      <div id="overlayCard" style="max-width:980px; width:100%; border:1px solid rgba(255,255,255,.12); border-radius:20px; padding:28px; box-shadow:0 30px 80px rgba(0,0,0,.35); background:linear-gradient(180deg,#0b1220 0%, #0d1324 100%);">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px;">
-          <div style="font-size:20px; opacity:.85;">Resultado</div>
-          <div style="display:flex; gap:8px;">
-            <button id="zoomIn" class="btn" style="background:#111827; color:#fff; border-color:#1f2937;">A+</button>
-            <button id="zoomOut" class="btn" style="background:#111827; color:#fff; border-color:#1f2937;">A-</button>
-            <button id="closeOverlay" class="btn" style="background:#dc2626; color:#fff; border-color:#dc2626;">Cerrar</button>
-          </div>
-        </div>
-        <div id="overlayContent" style="display:grid; gap:16px;"></div>
-      </div>
-    </div>
-  </div>
+  <div id="list"></div>
+  <div id="result"></div>
 
-  <script>
-    const CSV_URL = new URL('padron.csv', location.href).href;
-    const statusTxt = document.getElementById('statusTxt');
-    const debug = document.getElementById('debug');
-    const refreshBtn = document.getElementById('refreshBtn');
+<script>
+  const CSV_URL = new URL('padron.csv', location.href).href;
+  document.getElementById('url').textContent = 'CSV: ' + CSV_URL;
 
-    const els = {
-      q: document.getElementById('q'),
-      list: document.getElementById('list'),
-      result: document.getElementById('result'),
-      fullscreenBtn: document.getElementById('fullscreenBtn'),
-      clearBtn: document.getElementById('clearBtn'),
-    };
-    const state = { rows: [], filtered: [], selected: null };
+  const els = {
+    q: document.getElementById('q'),
+    list: document.getElementById('list'),
+    result: document.getElementById('result'),
+    status: document.getElementById('status'),
+  };
+  const state = { rows: [], filtered: [], selected: null };
 
-    function normalize(str='') { return str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
-    function onlyDigits(str='') { return (str.match(/\d+/g) || []).join(''); }
+  function setStatus(text, cls='') {
+    els.status.className = ''; if (cls) els.status.classList.add(cls);
+    els.status.textContent = text;
+  }
 
-    function parseCSV(text) {
-      text = text.replace(/^\uFEFF/, '');
-      const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
-      if (!lines.length) throw new Error('CSV vacío');
-      const parseLine = (line) => {
-        const out = []; let cur = '', inQ = false;
-        for (let i=0; i<line.length; i++){
-          const c = line[i];
-          if (c === '"'){ if (inQ && line[i+1] === '"'){ cur += '"'; i++; } else { inQ = !inQ; } }
-          else if (c === ',' && !inQ){ out.push(cur); cur = ''; }
-          else { cur += c; }
-        }
-        out.push(cur); return out;
-      };
-      const headers = parseLine(lines.shift()).map(h => h.trim().toLowerCase());
-      const need = ['nombre','dni','mesa','orden','escuela'];
-      for (const n of need) if (!headers.includes(n)) throw new Error('Falta columna: ' + n + '. Encabezados: ' + headers.join(', '));
-      const idx = (k)=> headers.indexOf(k);
-      const iNombre = idx('nombre'), iDni = idx('dni'), iMesa = idx('mesa'), iOrden = idx('orden'), iEscuela = idx('escuela');
-      return lines.map(l => {
-        const cols = parseLine(l);
-        const get = (i)=> (cols[i] ?? '').trim();
-        const r = { nombre:get(iNombre), dni:get(iDni), mesa:get(iMesa), orden:get(iOrden), escuela:get(iEscuela) };
-        r.__k_nombre = normalize(r.nombre);
-        r.__k_dni = onlyDigits(r.dni);
-        return r;
-      });
-    }
+  function normalize(str=''){ return str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+  function onlyDigits(str=''){ return (str.match(/\d+/g)||[]).join(''); }
 
-    function setRows(text) {
-      state.rows = parseCSV(text);
-      state.filtered = [];
-      state.selected = null;
-      els.result.innerHTML = '<div class="hint">Base cargada. Escribí nombre o DNI para buscar.</div>';
-      applyFilter();
-    }
-
-    function renderList() {
-      els.list.innerHTML = '';
-      state.filtered.forEach((r) => {
-        const div = document.createElement('div');
-        div.className = 'item';
-        div.innerHTML = \`
-          <div>
-            <div class="t">\${r.nombre}</div>
-            <div class="s">DNI: \${r.dni} • Escuela: \${r.escuela}</div>
-          </div>
-          <div class="s">Mesa \${r.mesa} · Orden \${r.orden}</div>
-        \`;
-        div.onclick = () => select(r);
-        els.list.appendChild(div);
-      });
-    }
-
-    function renderTicket(r, big=false) {
-      const card = \`
-        <div id="\${big ? 'printArea' : 'ticket'}" class="ticket \${big ? 'big' : ''}">
-          <h2>\${r.nombre} — DNI \${r.dni}</h2>
-          <div class="grid">
-            <div>
-              <div class="label">Escuela</div>
-              <div class="value">\${r.escuela}</div>
-            </div>
-            <div>
-              <div class="label">Mesa</div>
-              <div class="value">\${r.mesa}</div>
-            </div>
-            <div>
-              <div class="label">Orden</div>
-              <div class="value">\${r.orden}</div>
-            </div>
-          </div>
-        </div>\`;
-      if (!big) { els.result.innerHTML = card; } else { overlayContent.innerHTML = card; }
-      els.fullscreenBtn.disabled = false;
-      state.selected = r;
-    }
-
-    function select(r) { renderTicket(r); showOverlayFor(r); }
-
-    function applyFilter() {
-      const q = els.q.value.trim();
-      if (!q) { state.filtered = []; renderList(); return; }
-      const qn = normalize(q);
-      const qd = onlyDigits(q);
-      let matches = [];
-      if (qd.length >= 6) matches = state.rows.filter(r => r.__k_dni.endsWith(qd));
-      if (matches.length === 0) matches = state.rows.filter(r => r.__k_nombre.includes(qn));
-      state.filtered = matches.slice(0, 300);
-      renderList();
-      if (state.filtered.length === 1) select(state.filtered[0]);
-      else if (state.filtered.length === 0) els.result.innerHTML = '<div class="hint">Sin resultados. Probá con menos palabras o sólo el DNI.</div>';
-      else els.result.innerHTML = '<div class="hint">Seleccioná un resultado para ver la tarjeta.</div>';
-    }
-
-    const overlay = document.getElementById('overlay');
-    const overlayContent = document.getElementById('overlayContent');
-    const closeOverlay = document.getElementById('closeOverlay');
-    const zoomIn = document.getElementById('zoomIn');
-    const zoomOut = document.getElementById('zoomOut');
-    let baseFont = 20;
-    function showOverlayFor(record) {
-      overlayContent.style.fontSize = baseFont + 'px';
-      renderTicket(record, true);
-      overlay.style.display = 'block';
-      overlay.setAttribute('aria-hidden','false');
-    }
-    function hideOverlay() { overlay.style.display = 'none'; overlay.setAttribute('aria-hidden','true'); }
-    closeOverlay?.addEventListener('click', hideOverlay);
-    zoomIn?.addEventListener('click', () => { baseFont += 2; if (state.selected) showOverlayFor(state.selected); });
-    zoomOut?.addEventListener('click', () => { baseFont = Math.max(12, baseFont-2); if (state.selected) showOverlayFor(state.selected); });
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideOverlay(); });
-    document.getElementById('fullscreenBtn').addEventListener('click', () => { if (state.selected) showOverlayFor(state.selected); });
-
-    // Cache + timeout + diagnóstico
-    const LS_TEXT = 'PADRON_CSV_TEXT';
-    const LS_TIME = 'PADRON_CSV_TIME';
-
-    function loadFromCacheIfAny(){
-      try{
-        const cached = localStorage.getItem(LS_TEXT);
-        if (cached){
-          setRows(cached);
-          const when = localStorage.getItem(LS_TIME) || '';
-          statusTxt.textContent = 'Datos cargados (cache ' + (when || 'previo') + ')';
-          return true;
-        }
-      }catch{}
-      return false;
-    }
-    function saveCache(text){
-      try{
-        localStorage.setItem(LS_TEXT, text);
-        localStorage.setItem(LS_TIME, new Date().toLocaleString());
-      }catch{}
-    }
-
-    async function fetchWithTimeout(url, ms=15000){
-      const ctrl = new AbortController();
-      const id = setTimeout(()=>ctrl.abort(), ms);
-      try { return await fetch(url, {cache:'no-store', signal: ctrl.signal}); }
-      finally { clearTimeout(id); }
-    }
-
-    async function loadCSV() {
-      try {
-        const attempted = CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
-        debug.textContent = 'URL: ' + attempted;
-        if (!loadFromCacheIfAny()) statusTxt.textContent = 'Cargando padrón…';
-        const res = await fetchWithTimeout(attempted, 15000);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const text = await res.text();
-        setRows(text);
-        saveCache(text);
-        statusTxt.textContent = 'Datos cargados (' + new Date().toLocaleString() + ')';
-      } catch (err) {
-        els.result.innerHTML = '<div class="hint" style="color:#b91c1c;">No pude leer padron.csv: ' + err.message + '</div>';
-        if (!loadFromCacheIfAny()) statusTxt.textContent = 'Error cargando datos';
-        else statusTxt.textContent = 'Datos de cache — error al actualizar';
+  function parseCSV(text) {
+    text = text.replace(/^\uFEFF/, '');
+    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+    if (!lines.length) throw new Error('CSV vacío');
+    // comma with quotes
+    const parseLine = (line) => {
+      const out=[]; let cur='', inQ=false;
+      for (let i=0;i<line.length;i++){
+        const c=line[i];
+        if (c==='"'){ if (inQ && line[i+1]==='"'){ cur+='"'; i++; } else { inQ=!inQ; } }
+        else if (c===',' && !inQ){ out.push(cur); cur=''; }
+        else { cur+=c; }
       }
-    }
-
-    els.q.addEventListener('input', applyFilter);
-    window.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); els.q.focus(); els.q.select(); } });
-    refreshBtn?.addEventListener('click', () => loadCSV());
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      els.q.value=''; state.filtered=[]; state.selected=null; renderList();
-      els.result.innerHTML = '<div class="hint">Escribí nombre o DNI para buscar.</div>'; els.fullscreenBtn.disabled=true; els.q.focus();
+      out.push(cur); return out;
+    };
+    const headers = parseLine(lines.shift()).map(h=>h.trim().toLowerCase());
+    const need = ['nombre','dni','mesa','orden','escuela'];
+    for (const n of need) if (!headers.includes(n)) throw new Error('Falta columna: ' + n + '. Encabezados: ' + headers.join(', '));
+    const idx = (k)=> headers.indexOf(k);
+    const iNombre=idx('nombre'), iDni=idx('dni'), iMesa=idx('mesa'), iOrden=idx('orden'), iEscuela=idx('escuela');
+    return lines.map(l => {
+      const cols = parseLine(l);
+      const get = (i)=> (cols[i] ?? '').trim();
+      const r = { nombre:get(iNombre), dni:get(iDni), mesa:get(iMesa), orden:get(iOrden), escuela:get(iEscuela) };
+      r.__k_nombre = normalize(r.nombre);
+      r.__k_dni = onlyDigits(r.dni);
+      return r;
     });
+  }
 
-    loadFromCacheIfAny();
-    loadCSV();
-  </script>
+  function setRows(text){
+    state.rows = parseCSV(text);
+    setStatus('Datos cargados (' + new Date().toLocaleString() + ')', 'ok');
+    applyFilter();
+  }
+
+  function renderList(){
+    els.list.innerHTML='';
+    state.filtered.forEach(r => {
+      const d = document.createElement('div');
+      d.className='item';
+      d.innerHTML = '<b>' + r.nombre + '</b> — DNI ' + r.dni + '<div class="muted">Escuela: ' + r.escuela + ' • Mesa ' + r.mesa + ' · Orden ' + r.orden + '</div>';
+      d.onclick = () => select(r);
+      els.list.appendChild(d);
+    });
+  }
+
+  function renderCard(r){
+    els.result.innerHTML = '<div class="card"><h3 style="margin:0 0 8px 0;">' + r.nombre + ' — DNI ' + r.dni + '</h3>' +
+      '<div><b>Escuela</b>: ' + r.escuela + '</div>' +
+      '<div><b>Mesa</b>: ' + r.mesa + ' &nbsp; <b>Orden</b>: ' + r.orden + '</div></div>';
+  }
+
+  function select(r){ state.selected=r; renderCard(r); }
+
+  function applyFilter(){
+    const q = els.q.value.trim();
+    if (!q){ els.list.innerHTML=''; els.result.innerHTML=''; return; }
+    const qn = normalize(q), qd = onlyDigits(q);
+    let matches = [];
+    if (qd.length >= 6) matches = state.rows.filter(r => r.__k_dni.endsWith(qd));
+    if (matches.length === 0) matches = state.rows.filter(r => r.__k_nombre.includes(qn));
+    state.filtered = matches.slice(0, 100);
+    renderList();
+    if (state.filtered.length===1) select(state.filtered[0]);
+  }
+
+  els.q.addEventListener('input', applyFilter);
+
+  async function loadCSV(){
+    try{
+      setStatus('Cargando padrón…');
+      const attempted = CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const res = await fetch(attempted, {cache:'no-store'});
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      setRows(text);
+    }catch(e){
+      setStatus('Error cargando datos: ' + e.message, 'err');
+      console.error(e);
+    }
+  }
+
+  loadCSV();
+</script>
 </body>
 </html>
