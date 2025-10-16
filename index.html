@@ -158,7 +158,7 @@ function applyFilter(){
   if (matches.length === 0) matches = state.rows.filter(r => r.__k_nombre.includes(qn));
   state.filtered = matches.slice(0, 300);
   renderList();
-  if (state.filtered.length===1) select(state.filtered[0]);
+  if (state.filtered.length===1) renderTicket(state.filtered[0]);
   else if (state.filtered.length===0) els.result.innerHTML='<div class="hint">Sin resultados. Probá con menos palabras o sólo el DNI.</div>';
   else els.result.innerHTML='<div class="hint">Seleccioná un resultado para ver la tarjeta.</div>';
 }
