@@ -13,13 +13,11 @@
     .wrap { padding: var(--gap); display:grid; gap: var(--gap); grid-template-columns: 380px 1fr; }
     .card { background:#fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--gap); }
     .hint { font-size: 12px; color:#64748b; }
-    .controls { display:grid; gap:10px; }
     .row { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-    input[type="text"], input[type="url"] { width:100%; padding:12px 14px; border:1px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; }
-    input[type="text"]:focus, input[type="url"]:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,.15); }
+    input[type="text"] { width:100%; padding:12px 14px; border:1px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; }
+    input[type="text"]:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,.15); }
     .btn { display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; }
     .btn.primary { background: linear-gradient(90deg, var(--brandA), var(--brandB), var(--brandC)); color:#fff; border-color:transparent; }
-    .btn:disabled { opacity:.6; cursor:not-allowed; }
     .list { max-height: calc(100vh - 260px); overflow:auto; border-top:1px dashed #e5e7eb; margin-top:8px; }
     .item { padding:10px; border-bottom:1px dashed #eef2f7; cursor:pointer; display:flex; justify-content:space-between; gap:10px; }
     .item:hover { background:#f8fafc; }
@@ -27,70 +25,46 @@
     .item .s { font-size:12px; color:#6b7280; }
     .result { display:grid; gap:12px; }
     .ticket { background:#0f172a; color:#fff; border-radius:14px; padding:18px; display:grid; gap:8px; box-shadow: var(--shadow); }
-    .ticket.big h2 { font-size: 28px; }
-    .ticket.big .value { font-size: 24px; }
     .ticket h2 { margin:0; font-size:18px; letter-spacing:.2px; }
     .grid { display:grid; grid-template-columns: 1fr 1fr; gap:8px 14px; }
     .label { font-size:12px; color:#cbd5e1; text-transform: uppercase; letter-spacing:.05em; }
     .value { font-size:16px; font-weight:700; }
-    .actions { display:flex; gap:10px; flex-wrap:wrap; }
     .badge { background:#f1f5f9; padding:4px 8px; border-radius:999px; font-size:12px; color:#0f172a; border:1px solid #e2e8f0; }
-    footer { padding:12px; text-align:center; color:#94a3b8; font-size:12px; }
     @media (max-width: 980px) { .wrap { grid-template-columns:1fr; } .list { max-height: 280px; } }
-    /* Print styles – solo imprime la tarjeta */
-    @media print {
-      body * { visibility: hidden !important; }
-      #printArea, #printArea * { visibility: visible !important; }
-      #printArea { position: absolute; inset: 0; margin: 0; box-shadow: none !important; }
-      .ticket { border-radius: 0; height: 100vh; justify-content:center; }
-      header, footer { display:none !important; }
-    }
+    /* Overlay pantalla completa */
+    #overlay{position:fixed; inset:0; background:#0b1220; color:#fff; display:none; z-index:50;}
   </style>
 </head>
 <body>
   <header>
-    <img id="brandLogo" src="logo.jpg" alt="Provincias Unidas" style="height:34px; margin-right:10px; border-radius:6px;" />
-    <span id="statusTxt" class="badge">Cargando padrón…</span>
-    <button id="refreshBtn" class="btn" title="Volver a leer los datos del Sheets" style="margin-left:auto;">Refrescar datos datos</button>
+    <img id="brandLogo" src="logo.jpg" alt="Logo" style="height:34px; margin-right:10px; border-radius:6px;" />
     <h1>Buscador de Padrón</h1>
-    <span class="badge">Nombre o DNI → Imprime tarjeta</span>
+    <span id="statusTxt" class="badge" style="margin-left:8px;">Cargando padrón…</span>
+    <button id="refreshBtn" class="btn" style="margin-left:auto;" title="Volver a leer los datos">Refrescar datos</button>
   </header>
 
   <div class="wrap">
     <aside class="card">
-      <div class="row"><input id="q" type="text" placeholder="Buscar por nombre o DNI… (⌘/Ctrl + K)"></div>
-      <div class="controls" id="uploadControls" style="display:none;" style="display:none;">
-        <div id="drop" class="drop" style="border:2px dashed #94a3b8; padding:12px; border-radius:10px; text-align:center; color:#475569;">Arrastrá y soltá tu CSV aquí</div>
-        <div class="row">
-          <label class="btn">
-            <input id="csvFile" type="file" accept=".csv" hidden>
-            Cargar CSV
-          </label>
-          <button id="pasteUrl" class="btn">Pegar URL de CSV</button>
-          <button id="download" class="btn">Descargar CSV ejemplo</button>
-        </div>
+      <div class="row">
+        <input id="q" type="text" placeholder="Buscar por nombre o DNI… (⌘/Ctrl + K)">
       </div>
       <div id="list" class="list" aria-label="Resultados"></div>
-      <p id="dataNote" class="hint">Fuente: Google Sheets (se carga automáticamente). Usá el botón “Refrescar datos datos”.</p>
-      <p id="csvHint" style="display:none;" class="hint" style="display:none;">Formato CSV esperado: <code>nombre,dni,mesa,orden,escuela</code></p>
+      <p class="hint">Fuente: CSV local del repositorio (<code>padron.csv</code>). Usá “Refrescar datos”.</p>
     </aside>
 
     <main class="card">
       <div id="result" class="result">
-        <div class="hint">Cargá un CSV y escribí un nombre o DNI. Si hay múltiples coincidencias, seleccioná una.</div>
+        <div class="hint">Escribí un nombre o DNI. Si hay una sola coincidencia, se muestra automáticamente la tarjeta.</div>
       </div>
-      
-      <div class="actions" style="margin-top:10px;">
+      <div class="row" style="margin-top:10px;">
         <button id="fullscreenBtn" class="btn primary" disabled>Pantalla completa</button>
         <button id="clearBtn" class="btn">Limpiar</button>
       </div>
     </main>
-
-  
-</div>
+  </div>
 
   <!-- Overlay de pantalla completa -->
-  <div id="overlay" aria-hidden="true" style="position:fixed; inset:0; background:#0b1220; color:#fff; display:none; z-index:50;">
+  <div id="overlay" aria-hidden="true">
     <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:24px;">
       <div id="overlayCard" style="max-width:980px; width:100%; border:1px solid rgba(255,255,255,.12); border-radius:20px; padding:28px; box-shadow:0 30px 80px rgba(0,0,0,.35); background:linear-gradient(180deg,#0b1220 0%, #0d1324 100%);">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px;">
@@ -101,45 +75,34 @@
             <button id="closeOverlay" class="btn" style="background:#dc2626; color:#fff; border-color:#dc2626;">Cerrar</button>
           </div>
         </div>
-        <div id="overlayContent" style="display:grid; gap:16px;">
-          <!-- contenido dinámico -->
-        </div>
+        <div id="overlayContent" style="display:grid; gap:16px;"></div>
       </div>
     </div>
   </div>
 
-  <footer>
-Hecho con ❤️ — Funciona local o publicado en web estática.</footer>
-
   <script>
+    // === Configuración: CSV local (coma-delimitado) ===
+    const DEFAULT_DATA_URL = './padron.csv';
+    const DATA_URL = DEFAULT_DATA_URL;
+
+    // === Estado/elementos
     const els = {
       q: document.getElementById('q'),
       list: document.getElementById('list'),
-      csvFile: document.getElementById('csvFile'),
-      pasteUrl: document.getElementById('pasteUrl'),
-      download: document.getElementById('download'),
       result: document.getElementById('result'),
       fullscreenBtn: document.getElementById('fullscreenBtn'),
       clearBtn: document.getElementById('clearBtn'),
     };
-
+    const statusTxt = document.getElementById('statusTxt');
+    const refreshBtn = document.getElementById('refreshBtn');
     const state = { rows: [], filtered: [], selected: null };
 
-    const SAMPLE_CSV = `nombre,dni,mesa,orden,escuela
-Juan Perez,12345678,001,45,Escuela 12
-Juana Diaz,23456789,002,18,Escuela 5
-José Álvarez,34567890,003,77,Escuela 1
-María López,45678901,004,12,Escuela 7`;
-
-    function normalize(str='') {
-      return str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    }
+    // === Utilidades de búsqueda
+    function normalize(str='') { return str.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
     function onlyDigits(str='') { return (str.match(/\d+/g) || []).join(''); }
 
-    // Minimal CSV parse (simple commas; if you need full quoted CSV support, just avísame y lo agrego)
-    
+    // === Parser CSV (coma, comillas, BOM)
     function parseCSV(text) {
-      // Comma-delimited CSV only; supports quotes and UTF-8 BOM
       text = text.replace(/^\uFEFF/, '');
       const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
       if (!lines.length) throw new Error('CSV vacío');
@@ -167,13 +130,12 @@ María López,45678901,004,12,Escuela 7`;
         return r;
       });
     }
-    
+
     function setRows(text) {
       state.rows = parseCSV(text);
       state.filtered = [];
       state.selected = null;
       els.result.innerHTML = '<div class="hint">Base cargada. Escribí nombre o DNI para buscar.</div>';
-      els.fullscreenBtn.disabled = true;
       applyFilter();
     }
 
@@ -194,9 +156,9 @@ María López,45678901,004,12,Escuela 7`;
       });
     }
 
-    function renderTicket(r) {
-      els.result.innerHTML = \`
-        <div id="printArea" class="ticket" role="region" aria-label="Tarjeta para imprimir">
+    function renderTicket(r, big=false) {
+      const card = \`
+        <div id="\${big ? 'printArea' : 'ticket'}" class="ticket \${big ? 'big' : ''}">
           <h2>\${r.nombre} — DNI \${r.dni}</h2>
           <div class="grid">
             <div>
@@ -212,13 +174,20 @@ María López,45678901,004,12,Escuela 7`;
               <div class="value">\${r.orden}</div>
             </div>
           </div>
-        </div>
-      \`;
+        </div>\`;
+      if (!big) {
+        els.result.innerHTML = card;
+      } else {
+        overlayContent.innerHTML = card;
+      }
       els.fullscreenBtn.disabled = false;
       state.selected = r;
     }
 
-    function select(r) { renderTicket(r); }
+    function select(r) {
+      renderTicket(r);
+      showOverlayFor(r); // mostrar en pantalla completa inmediatamente
+    }
 
     function applyFilter() {
       const q = els.q.value.trim();
@@ -226,64 +195,38 @@ María López,45678901,004,12,Escuela 7`;
       const qn = normalize(q);
       const qd = onlyDigits(q);
       let matches = [];
-      if (qd.length >= 6) {
-        matches = state.rows.filter(r => r.__k_dni.endsWith(qd));
-      }
-      if (matches.length === 0) {
-        matches = state.rows.filter(r => r.__k_nombre.includes(qn));
-      }
+      if (qd.length >= 6) matches = state.rows.filter(r => r.__k_dni.endsWith(qd));
+      if (matches.length === 0) matches = state.rows.filter(r => r.__k_nombre.includes(qn));
       state.filtered = matches.slice(0, 300);
       renderList();
-      if (state.filtered.length === 1) {
-        select(state.filtered[0]);
-      } else {
-        els.fullscreenBtn.disabled = true;
-        if (state.filtered.length === 0) {
-          els.result.innerHTML = '<div class="hint">Sin resultados. Probá con menos palabras o solo el DNI.</div>';
-        } else {
-          els.result.innerHTML = '<div class="hint">Seleccioná un resultado para ver/imprimir la tarjeta.</div>';
-        }
-      }
+      if (state.filtered.length === 1) select(state.filtered[0]);
+      else if (state.filtered.length === 0) els.result.innerHTML = '<div class="hint">Sin resultados. Probá con menos palabras o sólo el DNI.</div>';
+      else els.result.innerHTML = '<div class="hint">Seleccioná un resultado para ver la tarjeta.</div>';
     }
 
-    
-    // === Data URL loader (Sheets/GitHub/CSV público) ===
-    const DEFAULT_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9kq5AXA-CpjSn1OmUnUkpQqUY3rBf4n80DF5EMj2uHtLdD3lKqoO6eXcNOAZTIi3oB8snH77BdC2/pub?gid=710845282&single=true&output=csv'; // e.g. Google Sheets publicado como CSV
-    const DATA_URL = DEFAULT_DATA_URL;
-    const statusTxt = document.getElementById('statusTxt');
-    const refreshBtn = document.getElementById('refreshBtn');
-
-    async function loadFromUrl(url){
-      if (!url || url.includes('https://docs.google.com/spreadsheets/d/e/2PACX-1vSt9kq5AXA-CpjSn1OmUnUkpQqUY3rBf4n80DF5EMj2uHtLdD3lKqoO6eXcNOAZTIi3oB8snH77BdC2/pub?gid=710845282&single=true&output=csv')) {
-        statusTxt.textContent = 'No se encontró padron.csv';
-        return;
-      }
-      try {
-        statusTxt.textContent = 'Cargando padrón…';
-        const res = await fetch(url, {cache:'no-store'});
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const text = await res.text();
-        setRows(text);
-        const when = new Date().toLocaleString();
-        statusTxt.textContent = 'Datos cargados (' + when + ')';
-      } catch (err) {
-        if (window.els?.result) els.result.innerHTML = '<div class="hint" style="color:#b91c1c;">No pude leer el CSV: ' + err.message + '</div>';
-        statusTxt.textContent = 'Error cargando datos';
-      }
+    // === Overlay pantalla completa
+    const overlay = document.getElementById('overlay');
+    const overlayContent = document.getElementById('overlayContent');
+    const closeOverlay = document.getElementById('closeOverlay');
+    const zoomIn = document.getElementById('zoomIn');
+    const zoomOut = document.getElementById('zoomOut');
+    let baseFont = 20;
+    function showOverlayFor(record) {
+      overlayContent.style.fontSize = baseFont + 'px';
+      renderTicket(record, true);
+      overlay.style.display = 'block';
+      overlay.setAttribute('aria-hidden','false');
     }
-    // Cargar al iniciar
-    
-    // === Instant-load cache (localStorage) ===
+    function hideOverlay() { overlay.style.display = 'none'; overlay.setAttribute('aria-hidden','true'); }
+    closeOverlay?.addEventListener('click', hideOverlay);
+    zoomIn?.addEventListener('click', () => { baseFont += 2; if (state.selected) showOverlayFor(state.selected); });
+    zoomOut?.addEventListener('click', () => { baseFont = Math.max(12, baseFont-2); if (state.selected) showOverlayFor(state.selected); });
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideOverlay(); });
+    els.fullscreenBtn.addEventListener('click', () => { if (state.selected) showOverlayFor(state.selected); });
+
+    // === Cache instantáneo (localStorage) + carga desde CSV local
     const LS_TEXT = 'PADRON_CSV_TEXT';
-    const LS_HASH = 'PADRON_CSV_HASH';
     const LS_TIME = 'PADRON_CSV_TIME';
-
-    async function sha256(text){
-      const enc = new TextEncoder().encode(text);
-      const buf = await crypto.subtle.digest('SHA-256', enc);
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-    }
-
     function loadFromCacheIfAny(){
       try{
         const cached = localStorage.getItem(LS_TEXT);
@@ -296,218 +239,42 @@ María López,45678901,004,12,Escuela 7`;
       }catch{}
       return false;
     }
-
-    async function saveCache(text){
+    function saveCache(text){
       try{
-        const h = await sha256(text);
         localStorage.setItem(LS_TEXT, text);
-        localStorage.setItem(LS_HASH, h);
         localStorage.setItem(LS_TIME, new Date().toLocaleString());
       }catch{}
     }
 
     async function loadFromUrl(url){
-      if (!url || url.includes('<<PEGAR_ACA_TU_URL_CSV_PUBLICO>>')) {
-        statusTxt.textContent = 'No se encontró padron.csv';
-        return;
-      }
       try {
-        if (!loadFromCacheIfAny()){
-          statusTxt.textContent = 'Cargando padrón…';
-        } else {
-          // Ya mostramos cache; seguimos con revalidación silenciosa
-        }
-        const res = await fetch(url, {cache:'no-store'});
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const text = await res.text();
-        // Si hay cache y el hash coincide, solo actualizar mensaje/tiempo
-        const oldHash = localStorage.getItem(LS_HASH) || '';
-        const newHash = await sha256(text);
-        if (newHash !== oldHash){
-          setRows(text); // datos nuevos → render inmediato
-        }
-        await saveCache(text);
-        statusTxt.textContent = 'Datos cargados (' + new Date().toLocaleString() + ')';
-      } catch (err) {
-        if (window.els?.result) els.result.innerHTML = '<div class="hint" style="color:#b91c1c;">No pude leer el CSV: ' + err.message + '</div>';
-        if (!loadFromCacheIfAny()){
-          statusTxt.textContent = 'Error cargando datos';
-        } else {
-          statusTxt.textContent = 'Datos de cache — error al actualizar';
-        }
-      }
-    }
-
-    // Cargar al iniciar: primero cache (si existe), luego red
-    loadFromCacheIfAny();
-    loadFromUrl(DATA_URL);
-    refreshBtn?.addEventListener('click', () => loadFromUrl(DATA_URL));
-
-    loadFromUrl(DATA_URL);
-    // Botón refrescar
-    refreshBtn?.addEventListener('click', () => loadFromUrl(DATA_URL));
-    // Auto-refresco opcional cada 5 min (descomentar si lo querés)
-    // setInterval(() => loadFromUrl(DATA_URL), 5 * 60 * 1000);
-
-    
-    // Ocultar controles de carga si usamos URL fija (mostrar sólo si ?upload=1)
-    const SHOW_UPLOAD = (getParam('upload') === '1');
-    const uploadControls = document.getElementById('uploadControls');
-    const csvHint = document.getElementById('csvHint');
-    if (!SHOW_UPLOAD) {
-      if (uploadControls) uploadControls.style.display = 'none';
-      if (csvHint) csvHint.style.display = 'none';
-    }
-
-    // Events
-    els.q.addEventListener('input', applyFilter);
-    window.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); els.q.focus(); els.q.select(); }
-    });
-    els.csvFile.addEventListener('change', (e) => {
-      const f = e.target.files?.[0]; if (!f) return;
-      const reader = new FileReader();
-      reader.onload = ev => { try { setRows(ev.target.result); } catch(err){ alert(err.message); } };
-      reader.readAsText(f, 'utf-8');
-    });
-    els.pasteUrl.addEventListener('click', async () => {
-      const url = prompt('Pegá la URL pública del CSV (p.ej. Google Sheets publicado como CSV):');
-      if (!url) return;
-      try {
+        if (!loadFromCacheIfAny()) statusTxt.textContent = 'Cargando padrón…';
         const res = await fetch(url, {cache:'no-store'});
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const text = await res.text();
         setRows(text);
+        saveCache(text);
+        statusTxt.textContent = 'Datos cargados (' + new Date().toLocaleString() + ')';
       } catch (err) {
-        alert('No pude leer el CSV: ' + err.message + '\n¿Está publicado y es accesible públicamente?');
+        els.result.innerHTML = '<div class="hint" style="color:#b91c1c;">No pude leer padron.csv: ' + err.message + '</div>';
+        if (!loadFromCacheIfAny()) statusTxt.textContent = 'Error cargando datos';
+        else statusTxt.textContent = 'Datos de cache — error al actualizar';
       }
-    });
-    els.download.addEventListener('click', () => {
-      const blob = new Blob([SAMPLE_CSV], {type:'text/csv'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'ejemplo_padron.csv';
-      a.click();
-    });
-    els.fullscreenBtn.addEventListener('click', () => { window.print(); });
-    els.clearBtn.addEventListener('click', () => {
+    }
+
+    // === Eventos
+    els.q.addEventListener('input', applyFilter);
+    window.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); els.q.focus(); els.q.select(); } });
+    refreshBtn?.addEventListener('click', () => loadFromUrl(DATA_URL));
+    document.getElementById('clearBtn').addEventListener('click', () => {
       els.q.value = ''; state.filtered = []; state.selected = null; renderList();
       els.result.innerHTML = '<div class="hint">Escribí nombre o DNI para buscar.</div>';
-      els.fullscreenBtn.disabled = true;
-      els.q.focus();
+      els.fullscreenBtn.disabled = true; els.q.focus();
     });
-  
-  <script>
-  // Overlay helpers
-  const overlay = document.getElementById('overlay');
-  const overlayContent = document.getElementById('overlayContent');
-  const closeOverlay = document.getElementById('closeOverlay');
-  const zoomIn = document.getElementById('zoomIn');
-  const zoomOut = document.getElementById('zoomOut');
-  let baseFont = 20;
 
-  function showOverlayFor(record) {
-    overlayContent.innerHTML = `
-      <div class="ticket big" style="padding:28px;">
-        <h2 style="font-size:${baseFont+12}px; margin:0 0 12px 0;">${record.nombre} — DNI ${record.dni}</h2>
-        <div class="grid">
-          <div>
-            <div class="label">Escuela</div>
-            <div class="value" style="font-size:${baseFont+8}px;">${record.escuela}</div>
-          </div>
-          <div>
-            <div class="label">Mesa</div>
-            <div class="value" style="font-size:${baseFont+8}px;">${record.mesa}</div>
-          </div>
-          <div>
-            <div class="label">Orden</div>
-            <div class="value" style="font-size:${baseFont+8}px;">${record.orden}</div>
-          </div>
-        </div>
-      </div>`;
-    overlay.style.display = 'block';
-    overlay.setAttribute('aria-hidden','false');
-  }
-  function hideOverlay() {
-    overlay.style.display = 'none';
-    overlay.setAttribute('aria-hidden','true');
-  }
-  closeOverlay?.addEventListener('click', hideOverlay);
-  zoomIn?.addEventListener('click', () => { baseFont += 2; if (window.state?.selected) showOverlayFor(window.state.selected); });
-  zoomOut?.addEventListener('click', () => { baseFont = Math.max(12, baseFont-2); if (window.state?.selected) showOverlayFor(window.state.selected); });
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideOverlay(); });
-
-  // Patch select() to enable fullscreen button and open overlay instantly when desired
-  const _select_old = select;
-  select = function(r) {
-    _select_old(r);
-    const btn = document.getElementById('fullscreenBtn');
-    if (btn) btn.disabled = false;
-    // Mostrar en pantalla al instante (sin necesidad de imprimir)
-    showOverlayFor(r);
-  };
-
-  // Habilitar botón de pantalla completa cuando hay selección
-  document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
-    if (window.state?.selected) showOverlayFor(window.state.selected);
-  });
+    // === Inicio
+    loadFromCacheIfAny();
+    loadFromUrl(DATA_URL);
   </script>
-</script>
-
-<script>
-// === Parches: parser robusto + drag&drop ===
-(function(){
-  function stripBOM(text=''){ return text.replace(/^\uFEFF/, ''); }
-  function detectDelimiter(headerLine) {
-    const counts = {',': (headerLine.match(/,/g)||[]).length, ';': (headerLine.match(/;/g)||[]).length, '\t': (headerLine.match(/\t/g)||[]).length};
-    let best = ',', max = -1; for (const k in counts){ if (counts[k] > max){ max = counts[k]; best = k; } } return best;
-  }
-  function parseCSV_robust(text){
-    text = stripBOM(text);
-    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
-    if (!lines.length) throw new Error('CSV vacío');
-    const delim = detectDelimiter(lines[0]);
-    const parseLine = (line) => {
-      const out = []; let cur = '', inQ = false;
-      for (let i=0;i<line.length;i++){
-        const c = line[i];
-        if (c === '"'){ if (inQ && line[i+1] === '"'){ cur += '"'; i++; } else { inQ = !inQ; } }
-        else if (c === delim && !inQ){ out.push(cur); cur = ''; }
-        else { cur += c; }
-      }
-      out.push(cur); return out;
-    };
-    const headers = parseLine(lines.shift()).map(h => h.trim().toLowerCase());
-    const need = ['nombre','dni','mesa','orden','escuela'];
-    for (const n of need) if (!headers.includes(n)) throw new Error('Falta columna: ' + n + '. Encabezados: ' + headers.join(', '));
-    const idx = (k)=> headers.indexOf(k);
-    const iNombre = idx('nombre'), iDni = idx('dni'), iMesa = idx('mesa'), iOrden = idx('orden'), iEscuela = idx('escuela');
-    return lines.map(l => {
-      const cols = parseLine(l);
-      const get = (i)=> (cols[i] ?? '').trim();
-      const r = { nombre:get(iNombre), dni:get(iDni), mesa:get(iMesa), orden:get(iOrden), escuela:get(iEscuela) };
-      r.__k_nombre = (typeof normalize==='function') ? normalize(r.nombre) : r.nombre.toLowerCase();
-      r.__k_dni = (typeof onlyDigits==='function') ? onlyDigits(r.dni) : (r.dni.match(/\d+/g)||[]).join('');
-      return r;
-    });
-  }
-  // Sobrescribir parseCSV si existe
-  try { window.parseCSV = parseCSV; } catch {}
-  // Agregar drag&drop si existe contenedor
-  const drop = document.getElementById('drop');
-  if (drop){
-    ['dragenter','dragover','dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }));
-    ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, () => { drop.style.background = '#f8fafc'; }));
-    ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, () => { drop.style.background = ''; }));
-    drop.addEventListener('drop', e => {
-      const f = e.dataTransfer.files?.[0]; if (!f) return;
-      const reader = new FileReader();
-      reader.onload = ev => { try { setRows(ev.target.result); } catch(err){ if (window.els?.result) els.result.innerHTML = '<div class="hint" style="color:#b91c1c;">' + err.message + '</div>'; } };
-      reader.readAsText(f, 'utf-8');
-    });
-  }
-})();
-</script>
-
 </body>
 </html>
