@@ -21,8 +21,8 @@
   th, td{ border-bottom:1px dashed #e5e7eb; padding:8px; text-align:left; }
   tfoot td{ font-weight:700; }
   .right{ text-align:right; }
-  .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; }
-  .btn.primary{ background:#0f172a; color:#fff; border-color:#0f172a; }
+  .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#0f172a; color:#fff; cursor:pointer; font-weight:600; }
+  .btn[disabled]{ opacity:.6; cursor:not-allowed; }
   .badge{ background:#f1f5f9; padding:4px 8px; border-radius:999px; font-size:12px; color:#0f172a; border:1px solid #e2e8f0; }
   .ok{ color:#059669; } .err{ color:#dc2626; }
   .hint{ font-size:12px; color:#64748b; }
@@ -32,41 +32,27 @@
 <header>
   <h1>Escrutinio — Carga de mesas</h1>
   <span id="status" class="badge" style="margin-left:8px;">Listo</span>
-  <span id="count" class="badge" style="margin-left:8px;">0 cargas</span>
-  <div style="margin-left:auto; display:flex; gap:8px;">
-    <button id="btnExport" class="btn">Exportar CSV</button>
-    <label class="btn">
-      Importar CSV
-      <input id="fileImport" type="file" accept=".csv" style="display:none">
-    </label>
-  </div>
 </header>
 
 <div class="wrap">
-  <!-- Aviso de listas fijas -->
+  <!-- Aviso -->
   <div class="card">
-    <div class="hint">Listas predeterminadas según boleta única y actas oficiales (orden fijo, vertical).</div>
+    <div class="hint">Listas predeterminadas según boleta única y actas oficiales (orden fijo, vertical). Todos los envíos van directo al servidor.</div>
   </div>
 
-  <!-- Datos de cabecera de la mesa -->
+  <!-- Cabecera -->
   <div class="card">
     <div class="row">
       <div class="col-3">
         <label>Mesa</label>
         <select id="mesaSel">
           <option value="">Seleccionar mesa…</option>
-          <option value="8367">8367</option>
-          <option value="8368">8368</option>
-          <option value="8369">8369</option>
-          <option value="8370">8370</option>
-          <option value="8371">8371</option>
-          <option value="8372">8372</option>
-          <option value="8373">8373</option>
-          <option value="8374">8374</option>
-          <option value="8375">8375</option>
-          <option value="8376">8376</option>
-          <option value="8377">8377</option>
-          <option value="8378">8378</option>
+          <option value="8367">8367</option><option value="8368">8368</option>
+          <option value="8369">8369</option><option value="8370">8370</option>
+          <option value="8371">8371</option><option value="8372">8372</option>
+          <option value="8373">8373</option><option value="8374">8374</option>
+          <option value="8375">8375</option><option value="8376">8376</option>
+          <option value="8377">8377</option><option value="8378">8378</option>
           <option value="8379">8379</option>
         </select>
       </div>
@@ -82,23 +68,20 @@
         <label>Fiscal/Responsable</label>
         <input id="fiscal" placeholder="Nombre y apellido">
       </div>
-      <!-- Quitados: Hora cierre, Teléfono -->
     </div>
   </div>
 
-  <!-- Resultados por lista (vertical) -->
+  <!-- Resultados -->
   <div class="card">
     <div style="overflow:auto;">
       <table id="tbl">
         <thead>
-          <tr id="th">
+          <tr>
             <th style="width:70%;">Lista / Agrupación</th>
             <th class="right" style="width:30%;">Votos</th>
           </tr>
         </thead>
-        <tbody id="tb">
-          <!-- filas dinámicas: una por lista con input de votos -->
-        </tbody>
+        <tbody id="tb"></tbody>
         <tfoot>
           <tr>
             <td><b>Total listas</b></td>
@@ -109,98 +92,70 @@
     </div>
 
     <div class="row" style="margin-top:10px;">
+      <div class="col-6"><label>Blancos</label><input id="blancos" inputmode="numeric" value="0"></div>
+      <div class="col-6"><label>Nulos</label><input id="nulos" inputmode="numeric" value="0"></div>
+      <div class="col-6"><label>Recurridos / Impugnados</label><input id="recurridos" inputmode="numeric" value="0"></div>
+      <div class="col-6"><label>Total sobres (acta)</label><input id="sobres" inputmode="numeric" value="0"></div>
+      <div class="col-12"><label>Observaciones</label><textarea id="obs" placeholder="Observaciones del acta / incidencias"></textarea></div>
+    </div>
+
+    <!-- Foto del acta -->
+    <div class="row" style="margin-top:10px;">
       <div class="col-6">
-        <label>Blancos</label><input id="blancos" inputmode="numeric" value="0">
+        <label>Foto del acta (opcional)</label>
+        <input id="fotoActa" type="file" accept="image/*" capture="environment">
       </div>
       <div class="col-6">
-        <label>Nulos</label><input id="nulos" inputmode="numeric" value="0">
-      </div>
-      <div class="col-6">
-        <label>Recurridos / Impugnados</label><input id="recurridos" inputmode="numeric" value="0">
-      </div>
-      <div class="col-6">
-        <label>Total sobres (acta)</label><input id="sobres" inputmode="numeric" value="0">
-      </div>
-      <div class="col-12">
-        <label>Observaciones</label><textarea id="obs" placeholder="Observaciones del acta / incidencias"></textarea>
+        <img id="preview" alt="" style="max-width:100%; max-height:140px; display:none; border:1px solid #e5e7eb; border-radius:8px;">
       </div>
     </div>
 
-    <div class="row" style="margin-top:10px;">
+    <div class="row" style="margin-top:12px;">
       <div class="col-6">
-        <button id="btnGuardar" class="btn primary">Guardar en este dispositivo</button>
+        <button id="btnGuardar" class="btn">Enviar al servidor</button>
         <span id="consistencia" class="hint" style="margin-left:10px;"></span>
       </div>
       <div class="col-6" style="text-align:right;">
-        <button id="btnNueva" class="btn">Nueva mesa</button>
+        <button id="btnNueva" class="btn" style="background:#475569;">Nueva mesa</button>
       </div>
     </div>
-  </div>
-
-  <!-- Listado local -->
-  <div class="card">
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-      <div style="font-weight:700;">Cargas locales</div>
-      <span class="hint">(se guardan en este dispositivo)</span>
-    </div>
-    <div id="list" class="hint">Sin cargas aún.</div>
   </div>
 </div>
 
 <script>
-// ==== util ====
-const $ = id => document.getElementById(id);
-const statusEl = $('status'), countEl = $('count');
-const LS_KEY = 'ESCRUTINIO_V2';
+// ====== Supabase (TU proyecto)
+const SUPABASE_URL = 'https://xzawoizvvwiqdusfztnf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6YXdvaXp2dndpcWR1c2Z6dG5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4MDYzODAsImV4cCI6MjA3NjM4MjM4MH0.nEsCYivPWv5U28wI8PG2v8S0ASpVFWuWRUO-zoEHiJM';
+const BUCKET = 'actas';
 
+// ====== Util
+const $ = id => document.getElementById(id);
+const statusEl = $('status');
 function setStatus(t){ statusEl.textContent = t; }
 function toInt(v){ v = (v??'').toString().trim(); const n = parseInt(v,10); return isNaN(n)?0:n; }
 
-// ==== Mesas -> Escuela ====
+// ====== Mesas -> Escuela
 const MESAS = {
-  8367: "IPET 334",
-  8368: "IPET 335",
-  8369: "IPET 336",
-  8370: "IPET 337",
-  8371: "IPET 338",
-  8372: "IPET 339",
-  8373: "ESC PABLO PIZZURNO",
-  8374: "ESC PABLO PIZZURNO",
-  8375: "ESC PABLO PIZZURNO",
-  8376: "ESC PABLO PIZZURNO",
-  8377: "ESC PABLO PIZZURNO",
-  8378: "ESC PABLO PIZZURNO",
-  8379: "ESC PABLO PIZZURNO",
+  8367:"IPET 334", 8368:"IPET 335", 8369:"IPET 336", 8370:"IPET 337",
+  8371:"IPET 338", 8372:"IPET 339",
+  8373:"ESC PABLO PIZZURNO", 8374:"ESC PABLO PIZZURNO", 8375:"ESC PABLO PIZZURNO",
+  8376:"ESC PABLO PIZZURNO", 8377:"ESC PABLO PIZZURNO", 8378:"ESC PABLO PIZZURNO", 8379:"ESC PABLO PIZZURNO"
 };
+$('mesaSel').addEventListener('change', ()=>{
+  const val = $('mesaSel').value;
+  $('escuela').value = val && MESAS[val] ? MESAS[val] : '';
+});
 
-// ==== listas fijas (orden oficial, vertical) ====
+// ====== Listas fijas (vertical)
 let LISTAS = [
-  "Partido Libertario",
-  "Alianza Fuerza Patria",
-  "Alianza Ciudadanos",
-  "Unión Popular Federal",
-  "Alianza Encuentro por la República",
-  "Frente Federal de Acción Solidaria",
-  "Política Abierta para la Integridad Social (PAIS)",
-  "Alianza Córdoba Te Quiero",
-  "Partido Demócrata",
-  "Acción Para el Cambio (APEC)",
-  "Defendamos Córdoba",
-  "Frente de Izquierda y de los Trabajadores - UNIDAD",
-  "Alianza La Libertad Avanza",
-  "Unión Cívica Radical",
-  "PRO - Propuesta Republicana",
-  "Movimiento Avanzada Socialista",
-  "FE",
-  "Alianza Provincias Unidas"
+  "Partido Libertario","Alianza Fuerza Patria","Alianza Ciudadanos","Unión Popular Federal",
+  "Alianza Encuentro por la República","Frente Federal de Acción Solidaria",
+  "Política Abierta para la Integridad Social (PAIS)","Alianza Córdoba Te Quiero","Partido Demócrata",
+  "Acción Para el Cambio (APEC)","Defendamos Córdoba",
+  "Frente de Izquierda y de los Trabajadores - UNIDAD","Alianza La Libertad Avanza","Unión Cívica Radical",
+  "PRO - Propuesta Republicana","Movimiento Avanzada Socialista","FE","Alianza Provincias Unidas"
 ].map((name,i)=>({id:'L'+(i+1), name}));
 
-function aplicarListas(){
-  renderTabla();
-  setStatus('Listas predeterminadas ('+LISTAS.length+')');
-}
-
-// ==== tabla: una fila por lista, columna de votos a la derecha, con atajos ====
 function renderTabla(){
   const tb = $('tb');
   tb.innerHTML = LISTAS.map((l,i)=>(
@@ -212,48 +167,19 @@ function renderTabla(){
       </td>
     </tr>`
   )).join('');
-
   const inputs = [...document.querySelectorAll('.voto')];
-
-  // recalcula totales cuando cambian
   inputs.forEach(inp => inp.addEventListener('input', syncTotales));
-
-  // helper para enfocar un input por índice
-  function focusVoto(i){
-    if (i < 0 || i >= inputs.length) return;
-    inputs[i].focus();
-    inputs[i].select();
-  }
-
-  // atajos de teclado por input
-  inputs.forEach((inp) => {
-    inp.addEventListener('focus', () => inp.select());
-    inp.addEventListener('keydown', (e) => {
-      const i = parseInt(inp.getAttribute('data-idx'), 10);
-      if (e.key === 'Enter' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (i < inputs.length - 1) {
-          focusVoto(i + 1);
-        } else {
-          // último: salta a "Blancos"
-          $('blancos').focus();
-          $('blancos').select?.();
-        }
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (i > 0) {
-          focusVoto(i - 1);
-        } else {
-          // primero: sube al selector de Mesa
-          $('mesaSel').focus();
-        }
-      }
+  function focusVoto(i){ if (i<0||i>=inputs.length) return; inputs[i].focus(); inputs[i].select(); }
+  inputs.forEach(inp=>{
+    inp.addEventListener('focus', ()=> inp.select());
+    inp.addEventListener('keydown', (e)=>{
+      const i = parseInt(inp.getAttribute('data-idx'),10);
+      if (e.key==='Enter' || e.key==='ArrowDown'){ e.preventDefault(); (i<inputs.length-1)?focusVoto(i+1):($('blancos').focus(),$('blancos').select?.()); }
+      else if (e.key==='ArrowUp'){ e.preventDefault(); (i>0)?focusVoto(i-1):$('mesaSel').focus(); }
     });
   });
-
   syncTotales();
 }
-
 function leerVotos(){
   const arr = new Array(LISTAS.length).fill(0);
   document.querySelectorAll('.voto').forEach(inp=>{
@@ -262,7 +188,6 @@ function leerVotos(){
   });
   return arr;
 }
-
 function syncTotales(){
   const votos = leerVotos();
   const totalListas = votos.reduce((a,b)=>a+b,0);
@@ -271,18 +196,93 @@ function syncTotales(){
   const recurridos = toInt($('recurridos').value);
   const sobres = toInt($('sobres').value);
   const totalContado = totalListas + blancos + nulos + recurridos;
-
   $('filaTotal').textContent = totalListas;
-
-  let txt = `Listas: ${totalListas} | +Blancos: ${blancos} +Nulos: ${nulos} +Rec/Imp: ${recurridos} = ${totalContado} | Sobres: ${sobres}`;
   const el = $('consistencia');
-  if (sobres===0 && totalContado===0){ el.textContent=''; }
-  else if (totalContado === sobres){ el.innerHTML = `<span class="ok">✔ Consistente (${txt})</span>`; }
-  else { el.innerHTML = `<span class="err">⚠ Inconsistencia (${txt})</span>`; }
+  let txt = `Listas: ${totalListas} | +Blancos: ${blancos} +Nulos: ${nulos} +Rec/Imp: ${recurridos} = ${totalContado} | Sobres: ${sobres}`;
+  if (sobres===0 && totalContado===0) el.textContent = '';
+  else if (totalContado === sobres)   el.innerHTML = `<span class="ok">✔ Consistente (${txt})</span>`;
+  else                                 el.innerHTML = `<span class="err">⚠ Inconsistencia (${txt})</span>`;
 }
 ['blancos','nulos','recurridos','sobres'].forEach(id => $(id).addEventListener('input', syncTotales));
 
-// ==== guardar / listar ====
+// ====== Foto del acta → Supabase Storage
+let FOTO_URL = '';
+async function compressImage(file, maxW=1600, quality=0.82){
+  const img = new Image(); img.src = URL.createObjectURL(file); await img.decode();
+  const scale = Math.min(1, maxW / img.naturalWidth);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.naturalWidth * scale); canvas.height = Math.round(img.naturalHeight * scale);
+  const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
+  return new File([blob], `acta_${Date.now()}.jpg`, { type: 'image/jpeg' });
+}
+async function subirFotoSupabase(file, mesa){
+  if (!mesa) throw new Error('Seleccioná la mesa antes de subir la foto.');
+  const small = await compressImage(file);
+  const path = `mesas/${mesa}/${small.name}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(path)}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Content-Type': 'image/jpeg',
+      'x-upsert': 'true'
+    },
+    body: small
+  });
+  if (!res.ok) throw new Error('Upload error ' + res.status);
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
+}
+$('fotoActa').addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0]; if (!f) return;
+  try{
+    setStatus('Subiendo foto…');
+    const mesa = $('mesaSel').value;
+    const url = await subirFotoSupabase(f, mesa);
+    FOTO_URL = url;
+    setStatus('Foto subida ✔');
+    const pv = $('preview'); pv.src = url; pv.style.display = 'block';
+  }catch(err){
+    setStatus('No se pudo subir la foto: ' + err.message);
+    FOTO_URL = '';
+  }
+});
+
+// ====== Token por mesa (se pide 1 vez por dispositivo/mesa)
+function getMesaTokenLocal(mesa){ return localStorage.getItem('token_mesa_' + mesa) || ''; }
+function setMesaTokenLocal(mesa, token){ localStorage.setItem('token_mesa_' + mesa, token); }
+async function pedirTokenSiHaceFalta(){
+  const mesa = $('mesaSel').value;
+  if (!mesa){ alert('Primero seleccioná una mesa.'); return false; }
+  const ya = getMesaTokenLocal(mesa);
+  if (ya) return true;
+  const t = prompt('Ingresá el código de acceso de la mesa ' + mesa + ':');
+  if (!t) return false;
+  setMesaTokenLocal(mesa, t.trim());
+  return true;
+}
+
+// ====== Envío a Supabase (REST)
+async function enviarASupabase(payload){
+  const url = `${SUPABASE_URL}/rest/v1/cargas_mesa`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok){
+    const txt = await res.text().catch(()=> '');
+    throw new Error(`HTTP ${res.status} ${txt || ''}`.trim());
+  }
+  return res.json();
+}
+
+// ====== Lectura del form
 function leerForm(){
   return {
     mesa: $('mesaSel').value.trim(),
@@ -296,6 +296,7 @@ function leerForm(){
     recurridos: toInt($('recurridos').value),
     sobres: toInt($('sobres').value),
     obs: $('obs').value.trim(),
+    foto_url: FOTO_URL || '',
     ts: new Date().toISOString()
   };
 }
@@ -304,132 +305,47 @@ function validar(d){
   if (!d.escuela) return 'Falta escuela (se completa automáticamente al elegir mesa)';
   return null;
 }
-function loadLocal(){
-  try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }catch{ return []; }
-}
-function saveLocal(arr){
-  localStorage.setItem(LS_KEY, JSON.stringify(arr));
-  countEl.textContent = arr.length + ' cargas';
-}
-function renderLocalList(){
-  const arr = loadLocal();
-  saveLocal(arr);
-  const list = $('list');
-  if (!arr.length){ list.textContent = 'Sin cargas aún.'; return; }
-  list.innerHTML = '';
-  arr.forEach((d,i)=>{
-    const div = document.createElement('div');
-    div.style.padding='8px 0'; div.style.borderBottom='1px dashed #e5e7eb';
-    const totListas = d.votos.reduce((a,b)=>a+b,0);
-    div.innerHTML = `<b>Mesa ${d.mesa}</b> — ${d.escuela} · Listas: ${totListas} · Blancos: ${d.blancos} · Nulos: ${d.nulos} · Rec/Imp: ${d.recurridos} · Sobres: ${d.sobres}
-    <div class="hint">${new Date(d.ts).toLocaleString()}</div>`;
-    list.appendChild(div);
-  });
-}
 
-// ==== Export/Import CSV (sin campos removidos) ====
-function toCSV(arr){
-  if (!arr.length) return '';
-  const maxListas = Math.max(...arr.map(d=>d.listas?.length||0));
-  const colsListas = Array.from({length:maxListas}, (_,i)=>`lista_${i+1}`);
-  const colsVotos  = Array.from({length:maxListas}, (_,i)=>`votos_${i+1}`);
-  const headers = ['mesa','escuela','electores','fiscal', ...colsListas, ...colsVotos, 'blancos','nulos','recurridos','sobres','obs','timestamp'];
-  const lines = [headers.join(',')];
+// ====== Botones
+$('btnGuardar').addEventListener('click', async ()=>{
+  if (!(await pedirTokenSiHaceFalta())) return;
 
-  arr.forEach(d=>{
-    const ls = d.listas || [];
-    const vs = d.votos || [];
-    const lsp = [...ls, ...Array(Math.max(0, maxListas-ls.length)).fill('')];
-    const vsp = [...vs, ...Array(Math.max(0, maxListas-vs.length)).fill(0)];
-    const row = [
-      d.mesa, csvEsc(d.escuela), d.electores, csvEsc(d.fiscal),
-      ...lsp.map(csvEsc),
-      ...vsp,
-      d.blancos, d.nulos, d.recurridos, d.sobres, csvEsc(d.obs), d.ts
-    ];
-    lines.push(row.join(','));
-  });
-  return lines.join('\n');
-}
-function csvEsc(s){ s = (s??'').toString(); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
+  const d = leerForm();
+  const err = validar(d);
+  if (err){ setStatus('Error: ' + err); return; }
 
-$('btnExport').addEventListener('click', ()=>{
-  const arr = loadLocal();
-  const csv = toCSV(arr);
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'escrutinio_local.csv';
-  a.click();
-});
+  const mesa_token = getMesaTokenLocal(d.mesa);
+  const payload = { ...d, mesa_token };
 
-$('fileImport').addEventListener('change', async (e)=>{
-  const f = e.target.files?.[0]; if (!f) return;
-  const text = await f.text();
-  const arrNew = parseCSVtoObjs(text);
-  const arr = loadLocal();
-  arrNew.forEach(d=>{
-    const ix = arr.findIndex(x => (x.mesa===d.mesa && x.escuela===d.escuela));
-    if (ix>=0) arr[ix]=d; else arr.push(d);
-  });
-  saveLocal(arr);
-  renderLocalList();
-  setStatus('Importado y unificado ✔');
-  e.target.value = '';
-});
+  try{
+    $('btnGuardar').disabled = true; setStatus('Enviando…');
+    await enviarASupabase(payload);
+    setStatus('Enviado a servidor ✔');
 
-function parseCSVtoObjs(text){
-  text = text.replace(/^\uFEFF/, '');
-  const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='');
-  if (!lines.length) return [];
-  const headers = splitCSVLine(lines.shift());
-  const idx = k => headers.indexOf(k);
-  const out = [];
-  for (const line of lines){
-    const cols = splitCSVLine(line);
-    const get = (k)=> cols[idx(k)] ?? '';
-    const listas = [], votos = [];
-    for (let i=1;;i++){
-      const ln = get('lista_'+i);
-      const vn = get('votos_'+i);
-      if (ln==='' && vn==='') { if (!headers.includes('lista_'+(i+1))) break; }
-      listas.push(ln||'');
-      votos.push(toInt(vn||'0'));
-      if (!headers.includes('lista_'+(i+1))) break;
-    }
-    out.push({
-      mesa: get('mesa'), escuela: get('escuela'), electores: toInt(get('electores')),
-      fiscal: get('fiscal'),
-      listas, votos,
-      blancos: toInt(get('blancos')), nulos: toInt(get('nulos')), recurridos: toInt(get('recurridos')),
-      sobres: toInt(get('sobres')), obs: get('obs'), ts: get('timestamp')||new Date().toISOString()
-    });
+    // limpiar para nueva carga
+    $('btnNueva').click();
+  }catch(e){
+    // Si el token es inválido, la policy rechaza (401/403)
+    setStatus('No se pudo subir: ' + e.message);
+    // permitir reintentar pidiendo token de nuevo
+    localStorage.removeItem('token_mesa_' + d.mesa);
+  }finally{
+    $('btnGuardar').disabled = false;
   }
-  return out;
-}
-function splitCSVLine(line){
-  const out=[]; let cur='', inQ=false;
-  for (let i=0;i<line.length;i++){
-    const c=line[i];
-    if (c===`"`){ if (inQ && line[i+1]===`"`){ cur+=`"`; i++; } else { inQ=!inQ; } }
-    else if (c===',' && !inQ){ out.push(cur); cur=''; }
-    else { cur+=c; }
-  }
-  out.push(cur); return out;
-}
-
-// ==== listeners de mesa/escuela ====
-$('mesaSel').addEventListener('change', ()=>{
-  const val = $('mesaSel').value;
-  $('escuela').value = val && MESAS[val] ? MESAS[val] : '';
 });
 
-// ==== init ====
-aplicarListas();
-renderLocalList();
-syncTotales();
-// foco inicial en selector de mesa
-setTimeout(() => { $('mesaSel').focus(); }, 0);
+$('btnNueva').addEventListener('click', ()=>{
+  $('mesaSel').value = ''; $('escuela').value = '';
+  ['electores','fiscal','blancos','nulos','recurridos','sobres','obs'].forEach(id => $(id).value = (['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
+  document.querySelectorAll('.voto').forEach(i=> i.value='0');
+  $('preview').style.display='none'; $('preview').src=''; FOTO_URL='';
+  syncTotales();
+  setStatus('Listo');
+});
+
+// ====== Init
+renderTabla();
+setTimeout(()=>{$('mesaSel').focus();},0);
 </script>
 </body>
 </html>
