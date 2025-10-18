@@ -15,6 +15,7 @@
   .col-3{ grid-column: span 3; } .col-4{ grid-column: span 4; } .col-6{ grid-column: span 6; } .col-8{ grid-column: span 8; } .col-12{ grid-column: span 12; }
   label{ font-size:12px; color:#475569; }
   input, select, textarea{ width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; font-size:14px; }
+  input[readonly]{ background:#f8fafc; }
   textarea{ min-height:70px; }
   table{ width:100%; border-collapse: collapse; }
   th, td{ border-bottom:1px dashed #e5e7eb; padding:8px; text-align:left; }
@@ -51,29 +52,37 @@
   <div class="card">
     <div class="row">
       <div class="col-3">
-        <label>N° Mesa</label>
-        <input id="mesa" inputmode="numeric" placeholder="Ej: 123">
+        <label>Mesa</label>
+        <select id="mesaSel">
+          <option value="">Seleccionar mesa…</option>
+          <option value="8367">8367</option>
+          <option value="8368">8368</option>
+          <option value="8369">8369</option>
+          <option value="8370">8370</option>
+          <option value="8371">8371</option>
+          <option value="8372">8372</option>
+          <option value="8373">8373</option>
+          <option value="8374">8374</option>
+          <option value="8375">8375</option>
+          <option value="8376">8376</option>
+          <option value="8377">8377</option>
+          <option value="8378">8378</option>
+          <option value="8379">8379</option>
+        </select>
       </div>
       <div class="col-6">
         <label>Escuela</label>
-        <input id="escuela" placeholder="Nombre de la escuela">
+        <input id="escuela" placeholder="Se completa automáticamente" readonly>
       </div>
       <div class="col-3">
         <label>Electores del padrón (opcional)</label>
         <input id="electores" inputmode="numeric" placeholder="Ej: 350">
       </div>
       <div class="col-4">
-        <label>Hora cierre (opcional)</label>
-        <input id="horaCierre" placeholder="19:00">
-      </div>
-      <div class="col-4">
         <label>Fiscal/Responsable</label>
         <input id="fiscal" placeholder="Nombre y apellido">
       </div>
-      <div class="col-4">
-        <label>Contacto</label>
-        <input id="contacto" placeholder="Teléfono">
-      </div>
+      <!-- Quitados: Hora cierre, Teléfono -->
     </div>
   </div>
 
@@ -142,10 +151,27 @@
 // ==== util ====
 const $ = id => document.getElementById(id);
 const statusEl = $('status'), countEl = $('count');
-const LS_KEY = 'ESCRUTINIO_V1';
+const LS_KEY = 'ESCRUTINIO_V2';
 
 function setStatus(t){ statusEl.textContent = t; }
 function toInt(v){ v = (v??'').toString().trim(); const n = parseInt(v,10); return isNaN(n)?0:n; }
+
+// ==== Mesas -> Escuela ====
+const MESAS = {
+  8367: "IPET 334",
+  8368: "IPET 335",
+  8369: "IPET 336",
+  8370: "IPET 337",
+  8371: "IPET 338",
+  8372: "IPET 339",
+  8373: "ESC PABLO PIZZURNO",
+  8374: "ESC PABLO PIZZURNO",
+  8375: "ESC PABLO PIZZURNO",
+  8376: "ESC PABLO PIZZURNO",
+  8377: "ESC PABLO PIZZURNO",
+  8378: "ESC PABLO PIZZURNO",
+  8379: "ESC PABLO PIZZURNO",
+};
 
 // ==== listas fijas (orden oficial, vertical) ====
 let LISTAS = [
@@ -218,9 +244,8 @@ function renderTabla(){
         if (i > 0) {
           focusVoto(i - 1);
         } else {
-          // primero: sube a "Mesa"
-          $('mesa').focus();
-          $('mesa').select?.();
+          // primero: sube al selector de Mesa
+          $('mesaSel').focus();
         }
       }
     });
@@ -260,12 +285,10 @@ function syncTotales(){
 // ==== guardar / listar ====
 function leerForm(){
   return {
-    mesa: $('mesa').value.trim(),
+    mesa: $('mesaSel').value.trim(),
     escuela: $('escuela').value.trim(),
     electores: toInt($('electores').value),
-    hora_cierre: $('horaCierre').value.trim(),
     fiscal: $('fiscal').value.trim(),
-    contacto: $('contacto').value.trim(),
     listas: LISTAS.map(l => l.name),
     votos: leerVotos(),
     blancos: toInt($('blancos').value),
@@ -277,8 +300,8 @@ function leerForm(){
   };
 }
 function validar(d){
-  if (!d.mesa) return 'Falta N° de mesa';
-  if (!d.escuela) return 'Falta escuela';
+  if (!d.mesa) return 'Falta seleccionar la Mesa';
+  if (!d.escuela) return 'Falta escuela (se completa automáticamente al elegir mesa)';
   return null;
 }
 function loadLocal(){
@@ -304,31 +327,13 @@ function renderLocalList(){
   });
 }
 
-$('btnGuardar').addEventListener('click', ()=>{
-  const d = leerForm();
-  const err = validar(d);
-  if (err){ setStatus('Error: '+err); return; }
-  const arr = loadLocal();
-  const ix = arr.findIndex(x => (x.mesa===d.mesa && x.escuela===d.escuela));
-  if (ix >= 0) arr[ix] = d; else arr.push(d);
-  saveLocal(arr);
-  renderLocalList();
-  setStatus('Guardado en este dispositivo ✔');
-});
-$('btnNueva').addEventListener('click', ()=>{
-  ['mesa','escuela','electores','horaCierre','fiscal','contacto','blancos','nulos','recurridos','sobres','obs'].forEach(id => $(id).value = (['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
-  document.querySelectorAll('.voto').forEach(i=> i.value='0');
-  syncTotales();
-  setStatus('Lista la carga para nueva mesa');
-});
-
-// ==== export CSV / import CSV ====
+// ==== Export/Import CSV (sin campos removidos) ====
 function toCSV(arr){
   if (!arr.length) return '';
   const maxListas = Math.max(...arr.map(d=>d.listas?.length||0));
   const colsListas = Array.from({length:maxListas}, (_,i)=>`lista_${i+1}`);
   const colsVotos  = Array.from({length:maxListas}, (_,i)=>`votos_${i+1}`);
-  const headers = ['mesa','escuela','electores','hora_cierre','fiscal','contacto', ...colsListas, ...colsVotos, 'blancos','nulos','recurridos','sobres','obs','timestamp'];
+  const headers = ['mesa','escuela','electores','fiscal', ...colsListas, ...colsVotos, 'blancos','nulos','recurridos','sobres','obs','timestamp'];
   const lines = [headers.join(',')];
 
   arr.forEach(d=>{
@@ -337,7 +342,7 @@ function toCSV(arr){
     const lsp = [...ls, ...Array(Math.max(0, maxListas-ls.length)).fill('')];
     const vsp = [...vs, ...Array(Math.max(0, maxListas-vs.length)).fill(0)];
     const row = [
-      d.mesa, csvEsc(d.escuela), d.electores, d.hora_cierre, csvEsc(d.fiscal), csvEsc(d.contacto),
+      d.mesa, csvEsc(d.escuela), d.electores, csvEsc(d.fiscal),
       ...lsp.map(csvEsc),
       ...vsp,
       d.blancos, d.nulos, d.recurridos, d.sobres, csvEsc(d.obs), d.ts
@@ -394,7 +399,7 @@ function parseCSVtoObjs(text){
     }
     out.push({
       mesa: get('mesa'), escuela: get('escuela'), electores: toInt(get('electores')),
-      hora_cierre: get('hora_cierre'), fiscal: get('fiscal'), contacto: get('contacto'),
+      fiscal: get('fiscal'),
       listas, votos,
       blancos: toInt(get('blancos')), nulos: toInt(get('nulos')), recurridos: toInt(get('recurridos')),
       sobres: toInt(get('sobres')), obs: get('obs'), ts: get('timestamp')||new Date().toISOString()
@@ -413,16 +418,18 @@ function splitCSVLine(line){
   out.push(cur); return out;
 }
 
+// ==== listeners de mesa/escuela ====
+$('mesaSel').addEventListener('change', ()=>{
+  const val = $('mesaSel').value;
+  $('escuela').value = val && MESAS[val] ? MESAS[val] : '';
+});
+
 // ==== init ====
 aplicarListas();
 renderLocalList();
 syncTotales();
-// foco inicial en la primera lista
-setTimeout(() => {
-  const first = document.querySelector('.voto[data-idx="0"]');
-  first?.focus();
-  first?.select();
-}, 0);
+// foco inicial en selector de mesa
+setTimeout(() => { $('mesaSel').focus(); }, 0);
 </script>
 </body>
 </html>
