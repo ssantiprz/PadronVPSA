@@ -19,6 +19,7 @@
   table{ width:100%; border-collapse: collapse; }
   th, td{ border-bottom:1px dashed #e5e7eb; padding:8px; text-align:left; }
   tfoot td{ font-weight:700; }
+  .right{ text-align:right; }
   .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; }
   .btn.primary{ background:#0f172a; color:#fff; border-color:#0f172a; }
   .badge{ background:#f1f5f9; padding:4px 8px; border-radius:999px; font-size:12px; color:#0f172a; border:1px solid #e2e8f0; }
@@ -43,7 +44,7 @@
 <div class="wrap">
   <!-- Aviso de listas fijas -->
   <div class="card">
-    <div class="hint">Listas predeterminadas según boleta única y actas oficiales (orden fijo).</div>
+    <div class="hint">Listas predeterminadas según boleta única y actas oficiales (orden fijo, vertical).</div>
   </div>
 
   <!-- Datos de cabecera de la mesa -->
@@ -76,27 +77,28 @@
     </div>
   </div>
 
-  <!-- Resultados por lista -->
+  <!-- Resultados por lista (vertical) -->
   <div class="card">
     <div style="overflow:auto;">
       <table id="tbl">
         <thead>
           <tr id="th">
-            <th>Concepto</th>
-            <!-- columnas de listas dinámicas -->
+            <th style="width:70%;">Lista / Agrupación</th>
+            <th class="right" style="width:30%;">Votos</th>
           </tr>
         </thead>
         <tbody id="tb">
-          <!-- filas dinámicas de votos -->
+          <!-- filas dinámicas: una por lista con input de votos -->
         </tbody>
         <tfoot>
           <tr>
-            <td><b>Total por fila</b></td>
-            <td id="filaTotal" class="hint" colspan="99"></td>
+            <td><b>Total listas</b></td>
+            <td id="filaTotal" class="right">0</td>
           </tr>
         </tfoot>
       </table>
     </div>
+
     <div class="row" style="margin-top:10px;">
       <div class="col-6">
         <label>Blancos</label><input id="blancos" inputmode="numeric" value="0">
@@ -145,7 +147,7 @@ const LS_KEY = 'ESCRUTINIO_V1';
 function setStatus(t){ statusEl.textContent = t; }
 function toInt(v){ v = (v??'').toString().trim(); const n = parseInt(v,10); return isNaN(n)?0:n; }
 
-// ==== listas fijas (orden oficial) ====
+// ==== listas fijas (orden oficial, vertical) ====
 let LISTAS = [
   "Partido Libertario",
   "Alianza Fuerza Patria",
@@ -167,26 +169,72 @@ let LISTAS = [
   "Alianza Provincias Unidas"
 ].map((name,i)=>({id:'L'+(i+1), name}));
 
-function aplicarListasFromText(){
+function aplicarListas(){
   renderTabla();
   setStatus('Listas predeterminadas ('+LISTAS.length+')');
 }
 
-// ==== tabla de votos ====
+// ==== tabla: una fila por lista, columna de votos a la derecha, con atajos ====
 function renderTabla(){
-  const th = $('th'), tb = $('tb');
-  th.innerHTML = '<th>Concepto</th>' + LISTAS.map(l=>'<th>'+l.name+'</th>').join('');
-  // una fila de votos por lista (carga simple: un renglón)
-  tb.innerHTML = '<tr id="rowVotos"><td>Votos por lista</td>' + LISTAS.map((l,i)=>(
-    `<td><input class="voto" data-idx="${i}" inputmode="numeric" value="0"></td>`
-  )).join('') + '</tr>';
+  const tb = $('tb');
+  tb.innerHTML = LISTAS.map((l,i)=>(
+    `<tr>
+      <td>${l.name}</td>
+      <td class="right">
+        <input class="voto" data-idx="${i}" inputmode="numeric" value="0"
+               style="width:120px; text-align:right;">
+      </td>
+    </tr>`
+  )).join('');
+
+  const inputs = [...document.querySelectorAll('.voto')];
+
+  // recalcula totales cuando cambian
+  inputs.forEach(inp => inp.addEventListener('input', syncTotales));
+
+  // helper para enfocar un input por índice
+  function focusVoto(i){
+    if (i < 0 || i >= inputs.length) return;
+    inputs[i].focus();
+    inputs[i].select();
+  }
+
+  // atajos de teclado por input
+  inputs.forEach((inp) => {
+    inp.addEventListener('focus', () => inp.select());
+    inp.addEventListener('keydown', (e) => {
+      const i = parseInt(inp.getAttribute('data-idx'), 10);
+      if (e.key === 'Enter' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (i < inputs.length - 1) {
+          focusVoto(i + 1);
+        } else {
+          // último: salta a "Blancos"
+          $('blancos').focus();
+          $('blancos').select?.();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (i > 0) {
+          focusVoto(i - 1);
+        } else {
+          // primero: sube a "Mesa"
+          $('mesa').focus();
+          $('mesa').select?.();
+        }
+      }
+    });
+  });
+
   syncTotales();
-  document.querySelectorAll('.voto').forEach(inp => inp.addEventListener('input', syncTotales));
 }
 
 function leerVotos(){
-  const arr = [];
-  document.querySelectorAll('.voto').forEach((inp,i)=> arr[i] = toInt(inp.value));
+  const arr = new Array(LISTAS.length).fill(0);
+  document.querySelectorAll('.voto').forEach(inp=>{
+    const i = parseInt(inp.getAttribute('data-idx'),10);
+    arr[i] = toInt(inp.value);
+  });
   return arr;
 }
 
@@ -199,12 +247,13 @@ function syncTotales(){
   const sobres = toInt($('sobres').value);
   const totalContado = totalListas + blancos + nulos + recurridos;
 
+  $('filaTotal').textContent = totalListas;
+
   let txt = `Listas: ${totalListas} | +Blancos: ${blancos} +Nulos: ${nulos} +Rec/Imp: ${recurridos} = ${totalContado} | Sobres: ${sobres}`;
   const el = $('consistencia');
   if (sobres===0 && totalContado===0){ el.textContent=''; }
   else if (totalContado === sobres){ el.innerHTML = `<span class="ok">✔ Consistente (${txt})</span>`; }
   else { el.innerHTML = `<span class="err">⚠ Inconsistencia (${txt})</span>`; }
-  $('filaTotal').textContent = `Total listas: ${totalListas}`;
 }
 ['blancos','nulos','recurridos','sobres'].forEach(id => $(id).addEventListener('input', syncTotales));
 
@@ -365,9 +414,15 @@ function splitCSVLine(line){
 }
 
 // ==== init ====
-aplicarListasFromText();
+aplicarListas();
 renderLocalList();
 syncTotales();
+// foco inicial en la primera lista
+setTimeout(() => {
+  const first = document.querySelector('.voto[data-idx="0"]');
+  first?.focus();
+  first?.select();
+}, 0);
 </script>
 </body>
 </html>
