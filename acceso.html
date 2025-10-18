@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acceso — Carga de Mesas</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#f6f7fb;margin:0;display:grid;place-items:center;height:100svh;color:#0f172a}
+  .card{background:#fff;padding:24px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.08);width:min(420px,90vw)}
+  h1{font-size:18px;margin:0 0 12px}
+  input{width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:10px;font-size:16px}
+  button{margin-top:12px;width:100%;padding:12px;border:0;border-radius:10px;background:#0f172a;color:#fff;font-weight:700;cursor:pointer}
+  .err{margin-top:8px;color:#dc2626;font-size:13px;height:1em}
+  .hint{margin-top:8px;color:#64748b;font-size:12px}
+</style>
+<body>
+  <div class="card">
+    <h1>Ingresá tu código de mesa</h1>
+    <input id="codigo" placeholder="Ej: ABC123" autocomplete="one-time-code" autofocus>
+    <button id="btn">Continuar</button>
+    <div id="msg" class="err"></div>
+    <div class="hint">El código lo provee la coordinación. Se valida por mesa.</div>
+  </div>
+
+<script>
+// Mapa CÓDIGO -> MESA (completá con tus códigos reales)
+const TOKENS = {
+  "ABC123": "8367",
+  "DEF456": "8368",
+  "GHI789": "8369",
+  "JKL000": "8370",
+  "MNO111": "8371",
+  "PQR222": "8372",
+  "STU333": "8373",
+  "VWX444": "8374",
+  "YZA555": "8375",
+  "BCD666": "8376",
+  "EFG777": "8377",
+  "HIJ888": "8378",
+  "KLM999": "8379"
+};
+
+const $ = id => document.getElementById(id);
+$('btn').addEventListener('click', ()=>{
+  const raw = $('codigo').value || '';
+  const code = raw.trim();                // dejalo sensible a may/min si querés
+  const mesa = TOKENS[code.toUpperCase()] || TOKENS[code] || '';
+  if (!mesa) { $('msg').textContent = 'Código inválido.'; return; }
+  // guardamos el token para que lo use el envío
+  localStorage.setItem('token_mesa_' + mesa, code);
+  // redirigimos a la carga, llevando mesa por querystring
+  location.href = 'escrutinio.html?mesa=' + encodeURIComponent(mesa);
+});
+</script>
+</body>
+</html>
