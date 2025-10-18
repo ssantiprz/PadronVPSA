@@ -22,7 +22,7 @@
   .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; }
   .btn.primary{ background:#0f172a; color:#fff; border-color:#0f172a; }
   .badge{ background:#f1f5f9; padding:4px 8px; border-radius:999px; font-size:12px; color:#0f172a; border:1px solid #e2e8f0; }
-  .ok{ color:#059669; } .warn{ color:#b45309; } .err{ color:#dc2626; }
+  .ok{ color:#059669; } .err{ color:#dc2626; }
   .hint{ font-size:12px; color:#64748b; }
   @media (max-width: 900px){ .row{ grid-template-columns: 1fr; } .col-3,.col-4,.col-6,.col-8,.col-12{ grid-column: span 1; } }
 </style>
@@ -41,20 +41,9 @@
 </header>
 
 <div class="wrap">
-  <!-- Config rápida de listas (editar nombres acá) -->
+  <!-- Aviso de listas fijas -->
   <div class="card">
-    <div class="hint">Fuente: Padrón Nacional Electoral — Configurá las listas abajo si hiciera falta.</div>
-    <div class="row" style="margin-top:10px;">
-      <div class="col-12">
-        <label>Listas / Agrupaciones (una por línea — se crean columnas automáticamente)</label>
-        <textarea id="listasTxt">Lista A
-Lista B
-Lista C</textarea>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-6"><button id="btnAplicarListas" class="btn">Aplicar listas</button></div>
-    </div>
+    <div class="hint">Listas predeterminadas según boleta única y actas oficiales (orden fijo).</div>
   </div>
 
   <!-- Datos de cabecera de la mesa -->
@@ -154,18 +143,36 @@ const statusEl = $('status'), countEl = $('count');
 const LS_KEY = 'ESCRUTINIO_V1';
 
 function setStatus(t){ statusEl.textContent = t; }
-
 function toInt(v){ v = (v??'').toString().trim(); const n = parseInt(v,10); return isNaN(n)?0:n; }
 
-// ==== listas dinámicas ====
-let LISTAS = [];
+// ==== listas fijas (orden oficial) ====
+let LISTAS = [
+  "Partido Libertario",
+  "Alianza Fuerza Patria",
+  "Alianza Ciudadanos",
+  "Unión Popular Federal",
+  "Alianza Encuentro por la República",
+  "Frente Federal de Acción Solidaria",
+  "Política Abierta para la Integridad Social (PAIS)",
+  "Alianza Córdoba Te Quiero",
+  "Partido Demócrata",
+  "Acción Para el Cambio (APEC)",
+  "Defendamos Córdoba",
+  "Frente de Izquierda y de los Trabajadores - UNIDAD",
+  "Alianza La Libertad Avanza",
+  "Unión Cívica Radical",
+  "PRO - Propuesta Republicana",
+  "Movimiento Avanzada Socialista",
+  "FE",
+  "Alianza Provincias Unidas"
+].map((name,i)=>({id:'L'+(i+1), name}));
+
 function aplicarListasFromText(){
-  const lines = $('listasTxt').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  LISTAS = lines.map((name,i)=> ({id:'L'+(i+1), name}));
   renderTabla();
-  setStatus('Listas aplicadas ('+LISTAS.length+')');
+  setStatus('Listas predeterminadas ('+LISTAS.length+')');
 }
 
+// ==== tabla de votos ====
 function renderTabla(){
   const th = $('th'), tb = $('tb');
   th.innerHTML = '<th>Concepto</th>' + LISTAS.map(l=>'<th>'+l.name+'</th>').join('');
@@ -192,7 +199,6 @@ function syncTotales(){
   const sobres = toInt($('sobres').value);
   const totalContado = totalListas + blancos + nulos + recurridos;
 
-  // estado de consistencia
   let txt = `Listas: ${totalListas} | +Blancos: ${blancos} +Nulos: ${nulos} +Rec/Imp: ${recurridos} = ${totalContado} | Sobres: ${sobres}`;
   const el = $('consistencia');
   if (sobres===0 && totalContado===0){ el.textContent=''; }
@@ -224,7 +230,6 @@ function leerForm(){
 function validar(d){
   if (!d.mesa) return 'Falta N° de mesa';
   if (!d.escuela) return 'Falta escuela';
-  // se permite 0 en campos numéricos
   return null;
 }
 function loadLocal(){
@@ -254,7 +259,6 @@ $('btnGuardar').addEventListener('click', ()=>{
   const d = leerForm();
   const err = validar(d);
   if (err){ setStatus('Error: '+err); return; }
-  // reemplaza si ya existe mesa igual
   const arr = loadLocal();
   const ix = arr.findIndex(x => (x.mesa===d.mesa && x.escuela===d.escuela));
   if (ix >= 0) arr[ix] = d; else arr.push(d);
@@ -272,7 +276,6 @@ $('btnNueva').addEventListener('click', ()=>{
 // ==== export CSV / import CSV ====
 function toCSV(arr){
   if (!arr.length) return '';
-  // encabezados dinámicos por listas
   const maxListas = Math.max(...arr.map(d=>d.listas?.length||0));
   const colsListas = Array.from({length:maxListas}, (_,i)=>`lista_${i+1}`);
   const colsVotos  = Array.from({length:maxListas}, (_,i)=>`votos_${i+1}`);
@@ -310,7 +313,6 @@ $('fileImport').addEventListener('change', async (e)=>{
   const f = e.target.files?.[0]; if (!f) return;
   const text = await f.text();
   const arrNew = parseCSVtoObjs(text);
-  // merge por mesa+escuela (reemplaza)
   const arr = loadLocal();
   arrNew.forEach(d=>{
     const ix = arr.findIndex(x => (x.mesa===d.mesa && x.escuela===d.escuela));
@@ -322,7 +324,6 @@ $('fileImport').addEventListener('change', async (e)=>{
   e.target.value = '';
 });
 
-// Parser de CSV exportado (para importar / unificar)
 function parseCSVtoObjs(text){
   text = text.replace(/^\uFEFF/, '');
   const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='');
@@ -333,7 +334,6 @@ function parseCSVtoObjs(text){
   for (const line of lines){
     const cols = splitCSVLine(line);
     const get = (k)=> cols[idx(k)] ?? '';
-    // recuperar dinámicos
     const listas = [], votos = [];
     for (let i=1;;i++){
       const ln = get('lista_'+i);
@@ -366,7 +366,6 @@ function splitCSVLine(line){
 
 // ==== init ====
 aplicarListasFromText();
-$('btnAplicarListas').addEventListener('click', aplicarListasFromText);
 renderLocalList();
 syncTotales();
 </script>
