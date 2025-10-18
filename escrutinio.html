@@ -2,9 +2,9 @@
 <html lang="es">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Escrutinio — Carga de mesas</title>
+<title>Escrutinio — Carga de Mesas</title>
 <style>
-  :root { --gap: 14px; --radius: 12px; --shadow: 0 10px 30px rgba(0,0,0,.08); }
+  :root { --radius: 12px; --shadow: 0 10px 30px rgba(0,0,0,.08); }
   *{ box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#f6f7fb; color:#0f172a; }
   header { position:sticky; top:0; z-index:5; background:#fff; box-shadow:var(--shadow); padding:10px 16px; display:flex; align-items:center; gap:10px;}
@@ -26,21 +26,21 @@
   .badge{ background:#f1f5f9; padding:4px 8px; border-radius:999px; font-size:12px; color:#0f172a; border:1px solid #e2e8f0; }
   .ok{ color:#059669; } .err{ color:#dc2626; }
   .hint{ font-size:12px; color:#64748b; }
+  .muted{ opacity:.7; pointer-events:none; }
   @media (max-width: 900px){ .row{ grid-template-columns: 1fr; } .col-3,.col-4,.col-6,.col-8,.col-12{ grid-column: span 1; } }
 </style>
 <body>
 <header>
-  <h1>Escrutinio — Carga de mesas</h1>
+  <h1>Escrutinio — Carga de Mesas</h1>
   <span id="status" class="badge" style="margin-left:8px;">Listo</span>
+  <span id="mesaFijaBadge" class="badge" style="margin-left:8px; display:none;"></span>
 </header>
 
 <div class="wrap">
-  <!-- Aviso -->
   <div class="card">
-    <div class="hint">Listas predeterminadas según boleta única y actas oficiales (orden fijo, vertical). Todos los envíos van directo al servidor.</div>
+    <div class="hint">Las listas están en el orden oficial. Todos los envíos se guardan directamente en el servidor.</div>
   </div>
 
-  <!-- Cabecera -->
   <div class="card">
     <div class="row">
       <div class="col-3">
@@ -61,7 +61,7 @@
         <input id="escuela" placeholder="Se completa automáticamente" readonly>
       </div>
       <div class="col-3">
-        <label>Electores del padrón (opcional)</label>
+        <label>Electores (opcional)</label>
         <input id="electores" inputmode="numeric" placeholder="Ej: 350">
       </div>
       <div class="col-4">
@@ -71,7 +71,6 @@
     </div>
   </div>
 
-  <!-- Resultados -->
   <div class="card">
     <div style="overflow:auto;">
       <table id="tbl">
@@ -96,10 +95,9 @@
       <div class="col-6"><label>Nulos</label><input id="nulos" inputmode="numeric" value="0"></div>
       <div class="col-6"><label>Recurridos / Impugnados</label><input id="recurridos" inputmode="numeric" value="0"></div>
       <div class="col-6"><label>Total sobres (acta)</label><input id="sobres" inputmode="numeric" value="0"></div>
-      <div class="col-12"><label>Observaciones</label><textarea id="obs" placeholder="Observaciones del acta / incidencias"></textarea></div>
+      <div class="col-12"><label>Observaciones</label><textarea id="obs" placeholder="Observaciones o incidencias"></textarea></div>
     </div>
 
-    <!-- Foto del acta -->
     <div class="row" style="margin-top:10px;">
       <div class="col-6">
         <label>Foto del acta (opcional)</label>
@@ -116,37 +114,34 @@
         <span id="consistencia" class="hint" style="margin-left:10px;"></span>
       </div>
       <div class="col-6" style="text-align:right;">
-        <button id="btnNueva" class="btn" style="background:#475569;">Nueva mesa</button>
+        <button id="btnNueva" class="btn" style="background:#475569;">Nueva carga</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// ====== Supabase (TU proyecto)
+/* ===== Supabase ===== */
 const SUPABASE_URL = 'https://xzawoizvvwiqdusfztnf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6YXdvaXp2dndpcWR1c2Z6dG5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4MDYzODAsImV4cCI6MjA3NjM4MjM4MH0.nEsCYivPWv5U28wI8PG2v8S0ASpVFWuWRUO-zoEHiJM';
 const BUCKET = 'actas';
 
-// ====== Util
+/* ===== Utils ===== */
 const $ = id => document.getElementById(id);
 const statusEl = $('status');
 function setStatus(t){ statusEl.textContent = t; }
 function toInt(v){ v = (v??'').toString().trim(); const n = parseInt(v,10); return isNaN(n)?0:n; }
+function getQueryParam(name){ const p = new URLSearchParams(location.search); return p.get(name) || ''; }
 
-// ====== Mesas -> Escuela
+/* ===== Mesas/escuelas ===== */
 const MESAS = {
   8367:"IPET 334", 8368:"IPET 335", 8369:"IPET 336", 8370:"IPET 337",
   8371:"IPET 338", 8372:"IPET 339",
   8373:"ESC PABLO PIZZURNO", 8374:"ESC PABLO PIZZURNO", 8375:"ESC PABLO PIZZURNO",
   8376:"ESC PABLO PIZZURNO", 8377:"ESC PABLO PIZZURNO", 8378:"ESC PABLO PIZZURNO", 8379:"ESC PABLO PIZZURNO"
 };
-$('mesaSel').addEventListener('change', ()=>{
-  const val = $('mesaSel').value;
-  $('escuela').value = val && MESAS[val] ? MESAS[val] : '';
-});
 
-// ====== Listas fijas (vertical)
+/* ===== Listas fijas ===== */
 let LISTAS = [
   "Partido Libertario","Alianza Fuerza Patria","Alianza Ciudadanos","Unión Popular Federal",
   "Alianza Encuentro por la República","Frente Federal de Acción Solidaria",
@@ -158,15 +153,9 @@ let LISTAS = [
 
 function renderTabla(){
   const tb = $('tb');
-  tb.innerHTML = LISTAS.map((l,i)=>(
-    `<tr>
-      <td>${l.name}</td>
-      <td class="right">
-        <input class="voto" data-idx="${i}" inputmode="numeric" value="0"
-               style="width:120px; text-align:right;">
-      </td>
-    </tr>`
-  )).join('');
+  tb.innerHTML = LISTAS.map((l,i)=>
+    `<tr><td>${l.name}</td><td class="right"><input class="voto" data-idx="${i}" inputmode="numeric" value="0" style="width:120px;text-align:right;"></td></tr>`
+  ).join('');
   const inputs = [...document.querySelectorAll('.voto')];
   inputs.forEach(inp => inp.addEventListener('input', syncTotales));
   function focusVoto(i){ if (i<0||i>=inputs.length) return; inputs[i].focus(); inputs[i].select(); }
@@ -180,172 +169,92 @@ function renderTabla(){
   });
   syncTotales();
 }
-function leerVotos(){
-  const arr = new Array(LISTAS.length).fill(0);
-  document.querySelectorAll('.voto').forEach(inp=>{
-    const i = parseInt(inp.getAttribute('data-idx'),10);
-    arr[i] = toInt(inp.value);
-  });
-  return arr;
-}
+
+function leerVotos(){ const arr=[]; document.querySelectorAll('.voto').forEach(i=>arr.push(toInt(i.value))); return arr; }
 function syncTotales(){
-  const votos = leerVotos();
-  const totalListas = votos.reduce((a,b)=>a+b,0);
-  const blancos = toInt($('blancos').value);
-  const nulos = toInt($('nulos').value);
-  const recurridos = toInt($('recurridos').value);
-  const sobres = toInt($('sobres').value);
-  const totalContado = totalListas + blancos + nulos + recurridos;
-  $('filaTotal').textContent = totalListas;
-  const el = $('consistencia');
-  let txt = `Listas: ${totalListas} | +Blancos: ${blancos} +Nulos: ${nulos} +Rec/Imp: ${recurridos} = ${totalContado} | Sobres: ${sobres}`;
-  if (sobres===0 && totalContado===0) el.textContent = '';
-  else if (totalContado === sobres)   el.innerHTML = `<span class="ok">✔ Consistente (${txt})</span>`;
-  else                                 el.innerHTML = `<span class="err">⚠ Inconsistencia (${txt})</span>`;
+  const votos=leerVotos(), total=votos.reduce((a,b)=>a+b,0);
+  const blancos=toInt($('blancos').value), nulos=toInt($('nulos').value), recurridos=toInt($('recurridos').value), sobres=toInt($('sobres').value);
+  const totalContado=total+blancos+nulos+recurridos;
+  $('filaTotal').textContent=total;
+  const el=$('consistencia');
+  let txt=`Listas: ${total} | +Blancos:${blancos} +Nulos:${nulos} +Rec/Imp:${recurridos} = ${totalContado} | Sobres:${sobres}`;
+  if (sobres===0&&totalContado===0) el.textContent=''; else if (totalContado===sobres) el.innerHTML=`<span class="ok">✔ ${txt}</span>`; else el.innerHTML=`<span class="err">⚠ ${txt}</span>`;
 }
-['blancos','nulos','recurridos','sobres'].forEach(id => $(id).addEventListener('input', syncTotales));
+['blancos','nulos','recurridos','sobres'].forEach(id=>$(id).addEventListener('input',syncTotales));
 
-// ====== Foto del acta → Supabase Storage
-let FOTO_URL = '';
-async function compressImage(file, maxW=1600, quality=0.82){
-  const img = new Image(); img.src = URL.createObjectURL(file); await img.decode();
-  const scale = Math.min(1, maxW / img.naturalWidth);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(img.naturalWidth * scale); canvas.height = Math.round(img.naturalHeight * scale);
-  const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
-  return new File([blob], `acta_${Date.now()}.jpg`, { type: 'image/jpeg' });
-}
-async function subirFotoSupabase(file, mesa){
-  if (!mesa) throw new Error('Seleccioná la mesa antes de subir la foto.');
-  const small = await compressImage(file);
-  const path = `mesas/${mesa}/${small.name}`;
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(path)}`, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-      'Content-Type': 'image/jpeg',
-      'x-upsert': 'true'
-    },
-    body: small
-  });
-  if (!res.ok) throw new Error('Upload error ' + res.status);
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-}
-$('fotoActa').addEventListener('change', async (e)=>{
-  const f = e.target.files?.[0]; if (!f) return;
-  try{
-    setStatus('Subiendo foto…');
-    const mesa = $('mesaSel').value;
-    const url = await subirFotoSupabase(f, mesa);
-    FOTO_URL = url;
-    setStatus('Foto subida ✔');
-    const pv = $('preview'); pv.src = url; pv.style.display = 'block';
-  }catch(err){
-    setStatus('No se pudo subir la foto: ' + err.message);
-    FOTO_URL = '';
-  }
-});
+/* ===== Foto → Storage ===== */
+let FOTO_URL='';
+async function compressImage(file,maxW=1600,quality=0.82){const img=new Image();img.src=URL.createObjectURL(file);await img.decode();const scale=Math.min(1,maxW/img.naturalWidth);const canvas=document.createElement('canvas');canvas.width=Math.round(img.naturalWidth*scale);canvas.height=Math.round(img.naturalHeight*scale);const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,canvas.width,canvas.height);const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',quality));return new File([blob],`acta_${Date.now()}.jpg`,{type:'image/jpeg'});}
+async function subirFotoSupabase(file,mesa){if(!mesa)throw new Error('Seleccioná la mesa.');const small=await compressImage(file);const path=`mesas/${mesa}/${small.name}`;const res=await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(path)}`,{method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'image/jpeg','x-upsert':'true'},body:small});if(!res.ok)throw new Error('Upload error '+res.status);return`${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;}
+$('fotoActa').addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;try{setStatus('Subiendo foto…');const mesa=$('mesaSel').value;const url=await subirFotoSupabase(f,mesa);FOTO_URL=url;setStatus('Foto subida ✔');const pv=$('preview');pv.src=url;pv.style.display='block';}catch(err){setStatus('No se pudo subir: '+err.message);FOTO_URL='';}});
 
-// ====== Token por mesa (se pide 1 vez por dispositivo/mesa)
-function getMesaTokenLocal(mesa){ return localStorage.getItem('token_mesa_' + mesa) || ''; }
-function setMesaTokenLocal(mesa, token){ localStorage.setItem('token_mesa_' + mesa, token); }
-async function pedirTokenSiHaceFalta(){
-  const mesa = $('mesaSel').value;
-  if (!mesa){ alert('Primero seleccioná una mesa.'); return false; }
-  const ya = getMesaTokenLocal(mesa);
-  if (ya) return true;
-  const t = prompt('Ingresá el código de acceso de la mesa ' + mesa + ':');
-  if (!t) return false;
-  setMesaTokenLocal(mesa, t.trim());
-  return true;
-}
-
-// ====== Envío a Supabase (REST)
+/* ===== Envío a Supabase ===== */
 async function enviarASupabase(payload){
-  const url = `${SUPABASE_URL}/rest/v1/cargas_mesa`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    },
-    body: JSON.stringify(payload)
+  const res=await fetch(`${SUPABASE_URL}/rest/v1/cargas_mesa`,{
+    method:'POST',
+    headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+    body:JSON.stringify(payload)
   });
-  if (!res.ok){
-    const txt = await res.text().catch(()=> '');
-    throw new Error(`HTTP ${res.status} ${txt || ''}`.trim());
-  }
+  if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error(`HTTP ${res.status} ${t}`); }
   return res.json();
 }
+function leerForm(){return{
+  mesa:$('mesaSel').value,
+  escuela:$('escuela').value,
+  electores:toInt($('electores').value),
+  fiscal:$('fiscal').value,
+  listas:LISTAS.map(l=>l.name),
+  votos:leerVotos(),
+  blancos:toInt($('blancos').value),
+  nulos:toInt($('nulos').value),
+  recurridos:toInt($('recurridos').value),
+  sobres:toInt($('sobres').value),
+  obs:$('obs').value,
+  foto_url:FOTO_URL||'',
+  ts:new Date().toISOString()
+};}
 
-// ====== Lectura del form
-function leerForm(){
-  return {
-    mesa: $('mesaSel').value.trim(),
-    escuela: $('escuela').value.trim(),
-    electores: toInt($('electores').value),
-    fiscal: $('fiscal').value.trim(),
-    listas: LISTAS.map(l => l.name),
-    votos: leerVotos(),
-    blancos: toInt($('blancos').value),
-    nulos: toInt($('nulos').value),
-    recurridos: toInt($('recurridos').value),
-    sobres: toInt($('sobres').value),
-    obs: $('obs').value.trim(),
-    foto_url: FOTO_URL || '',
-    ts: new Date().toISOString()
-  };
-}
-function validar(d){
-  if (!d.mesa) return 'Falta seleccionar la Mesa';
-  if (!d.escuela) return 'Falta escuela (se completa automáticamente al elegir mesa)';
-  return null;
-}
-
-// ====== Botones
-$('btnGuardar').addEventListener('click', async ()=>{
-  if (!(await pedirTokenSiHaceFalta())) return;
-
-  const d = leerForm();
-  const err = validar(d);
-  if (err){ setStatus('Error: ' + err); return; }
-
-  const mesa_token = getMesaTokenLocal(d.mesa);
-  const payload = { ...d, mesa_token };
-
+/* ===== Botones ===== */
+$('btnGuardar').addEventListener('click',async()=>{
+  const d=leerForm();
+  if(!d.mesa){ setStatus('Error: falta mesa'); return; }
   try{
-    $('btnGuardar').disabled = true; setStatus('Enviando…');
-    await enviarASupabase(payload);
-    setStatus('Enviado a servidor ✔');
-
-    // limpiar para nueva carga
+    $('btnGuardar').disabled=true; setStatus('Enviando…');
+    await enviarASupabase(d);          // <-- sin mesa_token
+    setStatus('Enviado ✔');
     $('btnNueva').click();
   }catch(e){
-    // Si el token es inválido, la policy rechaza (401/403)
-    setStatus('No se pudo subir: ' + e.message);
-    // permitir reintentar pidiendo token de nuevo
-    localStorage.removeItem('token_mesa_' + d.mesa);
+    setStatus('Error: '+e.message);
   }finally{
-    $('btnGuardar').disabled = false;
+    $('btnGuardar').disabled=false;
   }
 });
 
-$('btnNueva').addEventListener('click', ()=>{
-  $('mesaSel').value = ''; $('escuela').value = '';
-  ['electores','fiscal','blancos','nulos','recurridos','sobres','obs'].forEach(id => $(id).value = (['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
-  document.querySelectorAll('.voto').forEach(i=> i.value='0');
-  $('preview').style.display='none'; $('preview').src=''; FOTO_URL='';
-  syncTotales();
-  setStatus('Listo');
+$('btnNueva').addEventListener('click',()=>{
+  ['electores','fiscal','blancos','nulos','recurridos','sobres','obs'].forEach(id=>$(id).value=(['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
+  document.querySelectorAll('.voto').forEach(i=>i.value='0');
+  $('preview').style.display='none'; FOTO_URL='';
+  syncTotales(); setStatus('Listo');
 });
 
-// ====== Init
+/* ===== Init ===== */
 renderTabla();
-setTimeout(()=>{$('mesaSel').focus();},0);
+
+// Si viene ?mesa=XXXX, fijamos y bloqueamos
+$('mesaSel').addEventListener('change', ()=>{
+  const val = $('mesaSel').value;
+  $('escuela').value = val && MESAS[val] ? MESAS[val] : '';
+});
+const mesaQS = getQueryParam('mesa');
+if (mesaQS) {
+  const sel = $('mesaSel');
+  sel.innerHTML = `<option value="${mesaQS}" selected>${mesaQS}</option>`;
+  sel.value = mesaQS;
+  sel.classList.add('muted');
+  sel.disabled = true;
+  $('escuela').value = MESAS[mesaQS] || '';
+  const b = $('mesaFijaBadge'); b.style.display='inline-block'; b.textContent = `Mesa fija: ${mesaQS}`;
+}
 </script>
 </body>
 </html>
