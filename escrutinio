@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Escrutinio — Carga de mesas</title>
+<style>
+  :root { --gap: 14px; --radius: 12px; --shadow: 0 10px 30px rgba(0,0,0,.08); }
+  *{ box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#f6f7fb; color:#0f172a; }
+  header { position:sticky; top:0; z-index:5; background:#fff; box-shadow:var(--shadow); padding:10px 16px; display:flex; align-items:center; gap:10px;}
+  h1{ font-size:18px; margin:0; }
+  .wrap{ padding:16px; display:grid; gap:16px; max-width:1100px; margin:0 auto; }
+  .card{ background:#fff; border-radius:12px; box-shadow:var(--shadow); padding:16px; }
+  .row{ display:grid; gap:10px; grid-template-columns: repeat(12,1fr); align-items:end; }
+  .col-3{ grid-column: span 3; } .col-4{ grid-column: span 4; } .col-6{ grid-column: span 6; } .col-8{ grid-column: span 8; } .col-12{ grid-column: span 12; }
+  label{ font-size:12px; color:#475569; }
+  input, select, textarea{ width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; font-size:14px; }
+  textarea{ min-height:70px; }
+  table{ width:100%; border-collapse: collapse; }
+  th, td{ border-bottom:1px dashed #e5e7eb; padding:8px; text-align:left; }
+  tfoot td{ font-weight:700; }
+  .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; }
+  .btn.primary{ background:#0f172a; color:#fff; border-color:#0f172a; }
+  .badge{ background:#f1f5f9; padding:4px 8px; border-radius:999px; font-size:12px; color:#0f172a; border:1px solid #e2e8f0; }
+  .ok{ color:#059669; } .warn{ color:#b45309; } .err{ color:#dc2626; }
+  .hint{ font-size:12px; color:#64748b; }
+  @media (max-width: 900px){ .row{ grid-template-columns: 1fr; } .col-3,.col-4,.col-6,.col-8,.col-12{ grid-column: span 1; } }
+</style>
+<body>
+<header>
+  <h1>Escrutinio — Carga de mesas</h1>
+  <span id="status" class="badge" style="margin-left:8px;">Listo</span>
+  <span id="count" class="badge" style="margin-left:8px;">0 cargas</span>
+  <div style="margin-left:auto; display:flex; gap:8px;">
+    <button id="btnExport" class="btn">Exportar CSV</button>
+    <label class="btn">
+      Importar CSV
+      <input id="fileImport" type="file" accept=".csv" style="display:none">
+    </label>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- Config rápida de listas (editar nombres acá) -->
+  <div class="card">
+    <div class="hint">Fuente: Padrón Nacional Electoral — Configurá las listas abajo si hiciera falta.</div>
+    <div class="row" style="margin-top:10px;">
+      <div class="col-12">
+        <label>Listas / Agrupaciones (una por línea — se crean columnas automáticamente)</label>
+        <textarea id="listasTxt">Lista A
+Lista B
+Lista C</textarea>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-6"><button id="btnAplicarListas" class="btn">Aplicar listas</button></div>
+    </div>
+  </div>
+
+  <!-- Datos de cabecera de la mesa -->
+  <div class="card">
+    <div class="row">
+      <div class="col-3">
+        <label>N° Mesa</label>
+        <input id="mesa" inputmode="numeric" placeholder="Ej: 123">
+      </div>
+      <div class="col-6">
+        <label>Escuela</label>
+        <input id="escuela" placeholder="Nombre de la escuela">
+      </div>
+      <div class="col-3">
+        <label>Electores del padrón (opcional)</label>
+        <input id="electores" inputmode="numeric" placeholder="Ej: 350">
+      </div>
+      <div class="col-4">
+        <label>Hora cierre (opcional)</label>
+        <input id="horaCierre" placeholder="19:00">
+      </div>
+      <div class="col-4">
+        <label>Fiscal/Responsable</label>
+        <input id="fiscal" placeholder="Nombre y apellido">
+      </div>
+      <div class="col-4">
+        <label>Contacto</label>
+        <input id="contacto" placeholder="Teléfono">
+      </div>
+    </div>
+  </div>
+
+  <!-- Resultados por lista -->
+  <div class="card">
+    <div style="overflow:auto;">
+      <table id="tbl">
+        <thead>
+          <tr id="th">
+            <th>Concepto</th>
+            <!-- columnas de listas dinámicas -->
+          </tr>
+        </thead>
+        <tbody id="tb">
+          <!-- filas dinámicas de votos -->
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><b>Total por fila</b></td>
+            <td id="filaTotal" class="hint" colspan="99"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div class="col-6">
+        <label>Blancos</label><input id="blancos" inputmode="numeric" value="0">
+      </div>
+      <div class="col-6">
+        <label>Nulos</label><input id="nulos" inputmode="numeric" value="0">
+      </div>
+      <div class="col-6">
+        <label>Recurridos / Impugnados</label><input id="recurridos" inputmode="numeric" value="0">
+      </div>
+      <div class="col-6">
+        <label>Total sobres (acta)</label><input id="sobres" inputmode="numeric" value="0">
+      </div>
+      <div class="col-12">
+        <label>Observaciones</label><textarea id="obs" placeholder="Observaciones del acta / incidencias"></textarea>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div class="col-6">
+        <button id="btnGuardar" class="btn primary">Guardar en este dispositivo</button>
+        <span id="consistencia" class="hint" style="margin-left:10px;"></span>
+      </div>
+      <div class="col-6" style="text-align:right;">
+        <button id="btnNueva" class="btn">Nueva mesa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Listado local -->
+  <div class="card">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div style="font-weight:700;">Cargas locales</div>
+      <span class="hint">(se guardan en este dispositivo)</span>
+    </div>
+    <div id="list" class="hint">Sin cargas aún.</div>
+  </div>
+</div>
+
+<script>
+// ==== util ====
+const $ = id => document.getElementById(id);
+const statusEl = $('status'), countEl = $('count');
+const LS_KEY = 'ESCRUTINIO_V1';
+
+function setStatus(t){ statusEl.textContent = t; }
+
+function toInt(v){ v = (v??'').toString().trim(); const n = parseInt(v,10); return isNaN(n)?0:n; }
+
+// ==== listas dinámicas ====
+let LISTAS = [];
+function aplicarListasFromText(){
+  const lines = $('listasTxt').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  LISTAS = lines.map((name,i)=> ({id:'L'+(i+1), name}));
+  renderTabla();
+  setStatus('Listas aplicadas ('+LISTAS.length+')');
+}
+
+function renderTabla(){
+  const th = $('th'), tb = $('tb');
+  th.innerHTML = '<th>Concepto</th>' + LISTAS.map(l=>'<th>'+l.name+'</th>').join('');
+  // una fila de votos por lista (carga simple: un renglón)
+  tb.innerHTML = '<tr id="rowVotos"><td>Votos por lista</td>' + LISTAS.map((l,i)=>(
+    `<td><input class="voto" data-idx="${i}" inputmode="numeric" value="0"></td>`
+  )).join('') + '</tr>';
+  syncTotales();
+  document.querySelectorAll('.voto').forEach(inp => inp.addEventListener('input', syncTotales));
+}
+
+function leerVotos(){
+  const arr = [];
+  document.querySelectorAll('.voto').forEach((inp,i)=> arr[i] = toInt(inp.value));
+  return arr;
+}
+
+function syncTotales(){
+  const votos = leerVotos();
+  const totalListas = votos.reduce((a,b)=>a+b,0);
+  const blancos = toInt($('blancos').value);
+  const nulos = toInt($('nulos').value);
+  const recurridos = toInt($('recurridos').value);
+  const sobres = toInt($('sobres').value);
+  const totalContado = totalListas + blancos + nulos + recurridos;
+
+  // estado de consistencia
+  let txt = `Listas: ${totalListas} | +Blancos: ${blancos} +Nulos: ${nulos} +Rec/Imp: ${recurridos} = ${totalContado} | Sobres: ${sobres}`;
+  const el = $('consistencia');
+  if (sobres===0 && totalContado===0){ el.textContent=''; }
+  else if (totalContado === sobres){ el.innerHTML = `<span class="ok">✔ Consistente (${txt})</span>`; }
+  else { el.innerHTML = `<span class="err">⚠ Inconsistencia (${txt})</span>`; }
+  $('filaTotal').textContent = `Total listas: ${totalListas}`;
+}
+['blancos','nulos','recurridos','sobres'].forEach(id => $(id).addEventListener('input', syncTotales));
+
+// ==== guardar / listar ====
+function leerForm(){
+  return {
+    mesa: $('mesa').value.trim(),
+    escuela: $('escuela').value.trim(),
+    electores: toInt($('electores').value),
+    hora_cierre: $('horaCierre').value.trim(),
+    fiscal: $('fiscal').value.trim(),
+    contacto: $('contacto').value.trim(),
+    listas: LISTAS.map(l => l.name),
+    votos: leerVotos(),
+    blancos: toInt($('blancos').value),
+    nulos: toInt($('nulos').value),
+    recurridos: toInt($('recurridos').value),
+    sobres: toInt($('sobres').value),
+    obs: $('obs').value.trim(),
+    ts: new Date().toISOString()
+  };
+}
+function validar(d){
+  if (!d.mesa) return 'Falta N° de mesa';
+  if (!d.escuela) return 'Falta escuela';
+  // se permite 0 en campos numéricos
+  return null;
+}
+function loadLocal(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }catch{ return []; }
+}
+function saveLocal(arr){
+  localStorage.setItem(LS_KEY, JSON.stringify(arr));
+  countEl.textContent = arr.length + ' cargas';
+}
+function renderLocalList(){
+  const arr = loadLocal();
+  saveLocal(arr);
+  const list = $('list');
+  if (!arr.length){ list.textContent = 'Sin cargas aún.'; return; }
+  list.innerHTML = '';
+  arr.forEach((d,i)=>{
+    const div = document.createElement('div');
+    div.style.padding='8px 0'; div.style.borderBottom='1px dashed #e5e7eb';
+    const totListas = d.votos.reduce((a,b)=>a+b,0);
+    div.innerHTML = `<b>Mesa ${d.mesa}</b> — ${d.escuela} · Listas: ${totListas} · Blancos: ${d.blancos} · Nulos: ${d.nulos} · Rec/Imp: ${d.recurridos} · Sobres: ${d.sobres}
+    <div class="hint">${new Date(d.ts).toLocaleString()}</div>`;
+    list.appendChild(div);
+  });
+}
+
+$('btnGuardar').addEventListener('click', ()=>{
+  const d = leerForm();
+  const err = validar(d);
+  if (err){ setStatus('Error: '+err); return; }
+  // reemplaza si ya existe mesa igual
+  const arr = loadLocal();
+  const ix = arr.findIndex(x => (x.mesa===d.mesa && x.escuela===d.escuela));
+  if (ix >= 0) arr[ix] = d; else arr.push(d);
+  saveLocal(arr);
+  renderLocalList();
+  setStatus('Guardado en este dispositivo ✔');
+});
+$('btnNueva').addEventListener('click', ()=>{
+  ['mesa','escuela','electores','horaCierre','fiscal','contacto','blancos','nulos','recurridos','sobres','obs'].forEach(id => $(id).value = (['blancos','nulos','recurridos','sobres'].includes(id)?'0':''));
+  document.querySelectorAll('.voto').forEach(i=> i.value='0');
+  syncTotales();
+  setStatus('Lista la carga para nueva mesa');
+});
+
+// ==== export CSV / import CSV ====
+function toCSV(arr){
+  if (!arr.length) return '';
+  // encabezados dinámicos por listas
+  const maxListas = Math.max(...arr.map(d=>d.listas?.length||0));
+  const colsListas = Array.from({length:maxListas}, (_,i)=>`lista_${i+1}`);
+  const colsVotos  = Array.from({length:maxListas}, (_,i)=>`votos_${i+1}`);
+  const headers = ['mesa','escuela','electores','hora_cierre','fiscal','contacto', ...colsListas, ...colsVotos, 'blancos','nulos','recurridos','sobres','obs','timestamp'];
+  const lines = [headers.join(',')];
+
+  arr.forEach(d=>{
+    const ls = d.listas || [];
+    const vs = d.votos || [];
+    const lsp = [...ls, ...Array(Math.max(0, maxListas-ls.length)).fill('')];
+    const vsp = [...vs, ...Array(Math.max(0, maxListas-vs.length)).fill(0)];
+    const row = [
+      d.mesa, csvEsc(d.escuela), d.electores, d.hora_cierre, csvEsc(d.fiscal), csvEsc(d.contacto),
+      ...lsp.map(csvEsc),
+      ...vsp,
+      d.blancos, d.nulos, d.recurridos, d.sobres, csvEsc(d.obs), d.ts
+    ];
+    lines.push(row.join(','));
+  });
+  return lines.join('\n');
+}
+function csvEsc(s){ s = (s??'').toString(); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
+
+$('btnExport').addEventListener('click', ()=>{
+  const arr = loadLocal();
+  const csv = toCSV(arr);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'escrutinio_local.csv';
+  a.click();
+});
+
+$('fileImport').addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0]; if (!f) return;
+  const text = await f.text();
+  const arrNew = parseCSVtoObjs(text);
+  // merge por mesa+escuela (reemplaza)
+  const arr = loadLocal();
+  arrNew.forEach(d=>{
+    const ix = arr.findIndex(x => (x.mesa===d.mesa && x.escuela===d.escuela));
+    if (ix>=0) arr[ix]=d; else arr.push(d);
+  });
+  saveLocal(arr);
+  renderLocalList();
+  setStatus('Importado y unificado ✔');
+  e.target.value = '';
+});
+
+// Parser de CSV exportado (para importar / unificar)
+function parseCSVtoObjs(text){
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='');
+  if (!lines.length) return [];
+  const headers = splitCSVLine(lines.shift());
+  const idx = k => headers.indexOf(k);
+  const out = [];
+  for (const line of lines){
+    const cols = splitCSVLine(line);
+    const get = (k)=> cols[idx(k)] ?? '';
+    // recuperar dinámicos
+    const listas = [], votos = [];
+    for (let i=1;;i++){
+      const ln = get('lista_'+i);
+      const vn = get('votos_'+i);
+      if (ln==='' && vn==='') { if (!headers.includes('lista_'+(i+1))) break; }
+      listas.push(ln||'');
+      votos.push(toInt(vn||'0'));
+      if (!headers.includes('lista_'+(i+1))) break;
+    }
+    out.push({
+      mesa: get('mesa'), escuela: get('escuela'), electores: toInt(get('electores')),
+      hora_cierre: get('hora_cierre'), fiscal: get('fiscal'), contacto: get('contacto'),
+      listas, votos,
+      blancos: toInt(get('blancos')), nulos: toInt(get('nulos')), recurridos: toInt(get('recurridos')),
+      sobres: toInt(get('sobres')), obs: get('obs'), ts: get('timestamp')||new Date().toISOString()
+    });
+  }
+  return out;
+}
+function splitCSVLine(line){
+  const out=[]; let cur='', inQ=false;
+  for (let i=0;i<line.length;i++){
+    const c=line[i];
+    if (c===`"`){ if (inQ && line[i+1]===`"`){ cur+=`"`; i++; } else { inQ=!inQ; } }
+    else if (c===',' && !inQ){ out.push(cur); cur=''; }
+    else { cur+=c; }
+  }
+  out.push(cur); return out;
+}
+
+// ==== init ====
+aplicarListasFromText();
+$('btnAplicarListas').addEventListener('click', aplicarListasFromText);
+renderLocalList();
+syncTotales();
+</script>
+</body>
+</html>
